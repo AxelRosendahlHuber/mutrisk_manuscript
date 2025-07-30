@@ -1,0 +1,643 @@
+### Exome-wide analyses:
+# 1. get the exome-wide mutation rate estimates across the different cohort
+# 2. get the exome-wide mutation "saturation" plots across the genome
+library(data.table)
+library(tidyverse)
+library(ggh4x)
+library(mutrisk)
+source("code/functions/analysis_variables.R")
+
+# load metadata
+md_files = list.files("processed_data/", recursive = TRUE, pattern = "metadata",
+                            full.names = TRUE)
+names(md_files) = gsub("_.*", "", basename(md_files))
+metadata = lapply(md_files, fread) |>
+  rbindlist(idcol = "tissue", use.names = TRUE, fill = TRUE) |>
+  dplyr::select(any_of(c("sampleID", "category", "age", "donor"))) |>
+  dplyr::distinct()
+
+groupby = "donor"
+
+save_plots = function(plot_list, path, name, width = 13, height = 8) {
+
+  for (plot_name in names(plot_list))
+    ggsave(paste0(path, "/", name, "_", plot_name, ".png"),
+           plot_list[[plot_name]], width = width, height = height, bg = "white")
+}
+
+plot_intersect_boxplot = function(intersects, analysis_name, groupby) {
+
+  intersects = intersects |>
+    mutate(color = paste0(tissue, "_", category))
+  ggplot(intersects, aes(x = category, y = prob, fill = color)) +
+    geom_boxplot(color = "grey40", outliers = FALSE) +
+    geom_jitter(width = 0.2, alpha = 0.5, shape = 21, color = "white", stroke = 0.2, size = 3) +
+    facet_grid(~ tissue, scales = "free_x", space = "free") +
+    cowplot::theme_cowplot() +
+    scale_fill_manual(values = tissue_category_colors) +
+    theme(legend.position = "none") +
+    theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1)) +
+    labs(x = NULL, y = "Proportion of mutation sites\nwith at least one mutation",
+         title = analysis_name, subtitle = paste("grouped by:", groupby))
+}
+
+plot_intersect_boxplot_ci = function(intersects_ci, analysis_name, groupby) {
+
+  intersects_ci = intersects_ci |>
+    select(-ncells) |>
+    pivot_wider(values_from = prob, names_from = "name")
+
+  intersects = intersects_ci |>
+    mutate(color = paste0(tissue, "_", category))
+  ggplot(intersects, aes(x = category, y = mid_estimate, fill = color)) +
+    geom_boxplot(color = "grey40", outliers = FALSE) +
+    geom_pointrange(aes(ymin = low_estimate, ymax = high_estimate), alpha = 0.6, position = "jitter") +
+    facet_grid(~ tissue, scales = "free_x", space = "free") +
+    cowplot::theme_cowplot() +
+    scale_fill_manual(values = tissue_category_colors) +
+    theme(legend.position = "none") +
+    theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1)) +
+    labs(x = NULL, y = "Proportion of mutation sites\nwith at least one mutation",
+         title = analysis_name, subtitle = paste("grouped by:", groupby))
+}
+
+
+plot_prob_curve = function(probability_rates, analysis_name, groupby, nrow = 2) {
+  rates = probability_rates |>
+    mutate(color_id = paste0(tissue, "_", category))
+  tissue_ncells_plot = rates |>
+    select(tissue, category, color_id) |> distinct() |>
+    left_join(tissue_ncells)
+
+  ggplot(rates, aes(x = ncells, y = prob, group = groupID, color = color_id)) +
+    geom_line() +
+    geom_vline(data = tissue_ncells_plot, aes(xintercept = ncells), linetype = "dashed") +
+    facet_nested_wrap(. ~ factor(tissue, c("colon", "lung", "blood")) + category, nrow = nrow, nest_line = element_line(linetype = 1),
+                      axes = 'x') +
+    cowplot::theme_cowplot() + cowplot::panel_border() +
+    scale_color_manual(values = tissue_category_colors) +
+    labs(x = "Number of cells in tissue", y = "Proportion of mutation sites\nwith at least one mutation",
+         title = analysis_name, subtitle = paste("grouped by:", groupby)) +
+    theme(legend.position = "none",
+          panel.spacing = unit(0.2,"lines"),
+          strip.background = element_rect(color = "white", fill = "white"),
+          panel.border = element_rect(color = "black")) +
+    scale_x_log10(guide = "axis_logticks", labels = scales::label_log())
+}
+
+plot_prob_curve_ci = function(probability_rates, analysis_name, groupby, ncell_df, nrow = 2) {
+  rates = probability_rates |>
+    mutate(color_id = paste0(tissue, "_", category))
+  tissue_ncells_plot = rates |>
+    select(tissue, category, color_id) |> distinct() |>
+    left_join(ncell_df) |>
+    mutate(prelabel = format(mid_estimate),
+           label = ifelse(mid_estimate > 1e6, gsub("e\\+0", "x10^", format(mid_estimate)),
+                          format(mid_estimate, scientific = FALSE, big.mark = ",")),
+           label = paste(label, "cells"),
+           label = ifelse(mid_estimate == 1e5, '100,000 cells\nCI: 25,000-1.3x10^6', label))
+
+  ggplot(rates, aes(color = color_id)) +
+    geom_rect(data = tissue_ncells_plot,
+              aes(xmin = low_estimate, xmax = high_estimate, ymin = -Inf, ymax = 1),
+              color = "white", alpha = 0.5) +
+    geom_line(aes(x = ncells, y = prob, group = groupID)) +
+    geom_segment(data = tissue_ncells_plot, aes(x = mid_estimate, xend =  mid_estimate, y = 0, yend = 1),
+                 linetype = "dashed", color = "black") +
+    geom_text(data = tissue_ncells_plot, aes(x = mid_estimate, y = 1.05, label = label), color = "black") +
+    facet_nested_wrap(. ~ factor(tissue, c("blood", "colon", "lung")) + category,
+                      nrow = nrow, nest_line = element_line(linetype = 1), axes = 'all', remove_labels = "y") +
+    cowplot::theme_cowplot() +
+    scale_color_manual(values = tissue_category_colors) +
+    scale_y_continuous(expand = expansion(mult = c(0, 0.1))) +
+    scale_x_log10(guide = "axis_logticks", labels = scales::label_log()) +
+    labs(x = "Number of cells in tissue", y = "Proportion of mutation sites\nwith at least one mutation",
+         title = analysis_name, subtitle = paste("grouped by:", groupby)) +
+    theme(legend.position = "none",
+          panel.spacing = unit(0.2,"lines"),
+          strip.background = element_rect(color = "white", fill = "white")) +
+    coord_cartesian(clip = "off")
+}
+
+# saturation vs age functions:
+# preprocessing function for the saturation function
+get_saturation_ci = function(intersects) {
+  meta_donor = metadata |> select(donor, age) |> distinct()
+  intersects |>
+    dplyr::rename(donor = groupID) |>
+    left_join(meta_donor) |>
+    select(-ncells) |>
+    pivot_wider(names_from = "name", values_from = "prob") |>
+    mutate(tissue_category = paste0(tissue, "_", category))
+}
+
+
+get_saturation = function(intersects) {
+  meta_donor = metadata |> select(donor, age) |> distinct()
+  intersects |>
+    dplyr::rename(donor = groupID) |>
+    left_join(meta_donor) |>
+    mutate(tissue_category = paste0(tissue, "_", category))
+}
+
+
+# function to code the age vs. saturation as a dotplot
+plot_saturation_age = function(intersects_ci, analysis_name) {
+  get_saturation(intersects_ci) |>
+    select(-ncells) |>
+    pivot_wider(values_from = "prob") |>
+    ggplot(aes(x = age, y = mid_estimate, fill = tissue_category)) +
+    geom_point(shape = 21, color = "white", stroke = 0.2, size = 3) +
+    cowplot::theme_cowplot() +
+    scale_fill_manual(values = tissue_category_colors) +
+    theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1)) +
+    labs(x = NULL, y = "Proportion of mutation sites\nwith at least one mutation",
+         title = analysis_name, subtitle = "probability vs. age")
+}
+
+# function to code the age vs. saturation as a pointrange plot with confidence interval of the mutation rate
+plot_saturation_age_ci = function(intersects_ci, analysis_name)  {
+  get_saturation_ci(intersects_ci) |>
+    ggplot(aes(x = age, fill = tissue_category)) +
+    geom_pointrange(aes(ymin = low_estimate, y = mid_estimate, ymax = high_estimate), shape = 21, color = "black", stroke = 0.5) +
+    facet_grid(~ tissue, scales = "free_x", space = "free") +
+    cowplot::theme_cowplot() +
+    scale_fill_manual(values = tissue_category_colors) +
+    theme(legend.position = "none") +
+    theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1)) +
+    labs(x = NULL, y = "Proportion of mutation sites\nwith at least one mutation",
+         title = analysis_name, subtitle = paste("grouped by:", groupby))
+}
+
+analyze_probability = function(gene_counts, analysis_name, groupby = "donor",
+                               filter_normal = FALSE) {
+
+  prob_rates_tissue = list()
+  prob_intersect_tissue = list()
+  prob_intersects_ci_tissue = list()
+  result_plot_list = list()
+
+  for (tissue in c("colon", "lung", "blood")) {
+    print(tissue)
+
+    expected_rates = fread(paste0("processed_data/", tissue, "/", tissue, "_expected_rates.tsv.gz"))
+    if (filter_normal == TRUE) {
+      expected_rates = expected_rates |> filter(category %in% c("normal", "non-smoker"))
+    }
+
+    expected_rates = expected_rates |>
+      left_join(metadata, by = c("sampleID", "category")) |>
+      as.data.frame()
+
+    expected_rates = expected_rates |>
+      mutate(groupid = expected_rates[[groupby]]) |>
+      group_by(category, mut_type, groupid) |>
+      summarize(across(c(mle, cilow, cihigh), mean)) |>
+      ungroup() |> setDT()
+
+    ratios = fread(paste0("processed_data/", tissue, "/", tissue, "_mut_ratios.tsv.gz"))
+
+    category_list = list()
+    for (category_select in unique(expected_rates$category)) {
+
+      print(category_select)
+
+      # calculate the risk for specific categories:
+      ratios_cat = ratios[category == category_select,]
+      expected_rates_cat = expected_rates[category == category_select, ]
+      expected_rates_list = split(expected_rates_cat, expected_rates_cat$groupid)
+
+      m = matrix(NA, ncol = length(expected_rates_list), nrow = nrow(gene_counts))
+      colnames(m) = names(expected_rates_list)
+
+      for (groupid in names(expected_rates_list)) {
+        print(groupid)
+        expected_rates_sample = expected_rates_list[[groupid]]
+        genome_rates = get_adjusted_rates(expected_rates_sample = expected_rates_sample,
+                                          gene_counts = gene_counts, ratios_cat = ratios_cat)
+        m[,groupid] = genome_rates$adjusted_rates
+      }
+
+      m_sorted = apply(m, 2, sort)
+
+      if (class(m_sorted)[1] != "matrix") {
+        m_sorted = t(m_sorted) # prevent apply converting the matrix to a vector
+      }
+
+      # Compute means per bin if the dataframe is bigger or equal to 1e5
+      if (nrow(m_sorted) >= 1e5) {
+        binsize = 1000
+        group <- rep(1:(nrow(m_sorted) %/% binsize), each = binsize)
+        output_m <- rowsum(m_sorted, group) / binsize
+
+      } else { output_m = m_sorted}
+      colnames(output_m) = colnames(m)
+      category_list[[category_select]] = as.data.table(output_m)
+    }
+
+    plot_data = lapply(category_list, pivot_longer, everything()) |>
+      rbindlist(idcol = "category") |> arrange(value)
+
+    result_plot = plot_data |>
+      arrange(category, name, value) |>
+      group_by(category, name)
+
+    binsize = unique(count(result_plot)$n)
+
+    # get the cell counts
+    ncells = tissue_ncells$ncells[tissue_ncells$tissue == tissue]
+    ncells_ci = tissue_ncells_ci[tissue_ncells$tissue == tissue,]
+    ncells_ci_wide = tissue_ncells_ci_wide[tissue_ncells$tissue == tissue,]
+
+    result_plot_df = result_plot |>
+      ungroup() |>
+      mutate(n_mutated_cells = value * ncells,
+             ncells = ncells,
+             x = rep(1:binsize, n_groups(result_plot)) / 1e4,
+             x = x/max(x)) # normalize to 1
+
+    result_plot_list[[tissue]] = result_plot_df # save for later analysis
+
+    ##### get the mutated probability
+    gene_site_counts = gene_counts
+
+    # plot the overall rates
+    prob_rates = list()
+    prob_intersects = list()
+    prob_intersects_ci = list()
+    for (category_select in unique(expected_rates$category)) {
+
+      print(category_select)
+      # calculate the risk for specific categories:
+      ratios_cat = ratios[category == category_select,]
+      expected_rates_cat = expected_rates[category == category_select, ]
+      expected_rates_list = split(expected_rates_cat, expected_rates_cat$groupid)
+
+      list_probs  = list()
+      list_intersects = list()
+      list_intersects_ci = list()
+      for (name in names(expected_rates_list)) {
+        print(name)
+        list_probs[[name]] = get_prob_mutated_range(expected_rates_sample = expected_rates_list[[name]],
+                                                    gene_counts = gene_site_counts,
+                                                    ratios_cat = ratios_cat,
+                                                    step = 0.2)
+
+        # get the rates for the tissue-specific number of cells
+        list_intersects[[name]] = get_prob_mutated_range(expected_rates_sample = expected_rates_list[[name]],
+                                                         gene_counts = gene_site_counts,
+                                                         ratios_cat = ratios_cat, range = ncells)
+
+        list_intersects_ci[[name]] = get_prob_mutated_range(expected_rates_sample = expected_rates_list[[name]],
+                                                            gene_counts = gene_site_counts,
+                                                            ratios_cat = ratios_cat, range = as.numeric(ncells_ci_wide[-1])) |>
+          mutate(name = ncells_ci_wide[-1] |> names())
+      }
+
+      prob_rates[[category_select]] = rbindlist(list_probs, idcol = "groupID")
+      prob_intersects[[category_select]] = rbindlist(list_intersects, idcol = "groupID")
+      prob_intersects_ci[[category_select]] = rbindlist(list_intersects_ci, idcol = "groupID")
+
+    }
+
+    prob_rates_tissue[[tissue]] = rbindlist(prob_rates, idcol = "category")
+    prob_intersect_tissue[[tissue]] = rbindlist(prob_intersects, idcol = "category")
+    prob_intersects_ci_tissue[[tissue]] = rbindlist(prob_intersects_ci, idcol = "category")
+  }
+
+  intersects = rbindlist(prob_intersect_tissue, idcol = "tissue")
+  intersects_ci = rbindlist(prob_intersects_ci_tissue, idcol = "tissue")
+  probability_rates = rbindlist(prob_rates_tissue, idcol = "tissue")
+  plot_results = rbindlist(result_plot_list, idcol = "tissue")
+
+  plot_list = list()
+  plot_list[["plot_saturation"]] = plot_intersect_boxplot(intersects, analysis_name, groupby)
+  plot_list[["plot_saturation_ci"]] = plot_intersect_boxplot_ci(intersects_ci, analysis_name, groupby)
+
+  if (filter_normal == TRUE) {
+    nrow = 1
+  } else { nrow = 2}
+
+  plot_list[["plot_saturation_curve"]] = plot_prob_curve(probability_rates = probability_rates, analysis_name, groupby,nrow = nrow)
+  plot_list[["plot_saturation_curve_ci"]] = plot_prob_curve_ci(probability_rates = probability_rates, analysis_name, groupby, ncell_df = tissue_ncells_ci, nrow = nrow)
+  plot_list[["plot_saturation_curve_ci_wide"]] = plot_prob_curve_ci(probability_rates = probability_rates, analysis_name, groupby, ncell_df = tissue_ncells_ci_wide, nrow = nrow)
+  plot_list[["plot_probabilites_normal_colon"]] = plot_prob_curve(probability_rates |> filter(tissue == "colon" & category == "normal"), analysis_name, groupby, nrow = 1) +
+    labs(subtitle = NULL)
+
+  # plot the saturation vs age:
+  plot_list[["plot_saturation_age"]] = plot_saturation_age(intersects_ci |> filter(name == "mid_estimate"), analysis_name)
+  plot_list[["plot_saturation_age_ci"]] = plot_saturation_age_ci(intersects_ci, analysis_name)
+
+  return(list(intersects = intersects, rates = probability_rates, result_plot_df = plot_results,  plot_list = plot_list))
+}
+
+# Exome: get the individual counts across the entire exome
+genes = lapply(wintr::RefCDS_WGS, \(x) as.data.table(x[["L"]][,1:4]))
+names(genes) = sapply(wintr::RefCDS_WGS, \(x) x[["gene_name"]])
+gene_counts = rbindlist(genes, idcol = "gene_name")
+gene_counts$mut_type = rep(mutrisk::triplet_match_substmodel$mut_type, nrow(gene_counts)/192)
+colnames(gene_counts)[-c(1,6)] = c("syn", "mis", "nonsense", "splice")
+gene_counts = gene_counts |>
+  pivot_longer(-c(gene_name, mut_type), names_to = "consequence", values_to = "count") |>
+  filter(count != 0) |>
+  setDT()
+gene_counts = sample_n(gene_counts, 1e4)
+
+exome_analysis = analyze_probability(gene_counts = gene_counts, analysis_name = "exome analysis", groupby = "donor")
+save_plots(exome_analysis$plot_list, path = "plots/coverage_saturation/", name = "exome")
+
+exome_analysis_normal = analyze_probability(gene_counts = gene_counts, analysis_name = "exome analysis", groupby = "donor", filter_normal = TRUE)
+save_plots(exome_analysis_normal$plot_list, path = "plots/coverage_saturation/", name = "normal_exome", width = 7, height = 5)
+save_plots(exome_analysis_normal$plot_list, path = "plots/coverage_saturation/", name = "normal_exome_wideplot", width = 10, height = 5)
+
+
+# For the text: Get the proportion of mutated sites with at least one mutation:
+exome_analysis_normal$intersects |>
+  filter(tissue == "blood") |>
+  left_join(select(metadata, donor, age) |> distinct() |> dplyr::rename(groupID = donor)) |>
+  filter(age > 35) |>
+  pull(age) |> mean()
+
+exome_analysis_normal$intersects |>
+  filter(tissue == "blood") |>
+  left_join(select(metadata, donor, age) |> distinct() |> dplyr::rename(groupID = donor)) |>
+  filter(age > 35) |>
+  pull(prob) |> mean() * 100
+
+
+#######
+# load pan-cancer BoostDM driver predictions:
+#######
+pancancer_drivers = fread("processed_data/boostdm/boostdm_genie_cosmic/pancancer_boostDM_intersect.txt.gz")
+
+## TP53
+TP53_driver_counts = pancancer_drivers[driver == TRUE & gene_name == "TP53",
+                                       .(count = .N), by = .(gene_name, mut_type)]
+
+TP53_analysis = analyze_probability(gene_counts = TP53_driver_counts, analysis_name = "TP53 driver muts", groupby = "donor")
+TP53_analysis$plot_list$intersects
+save_plots(TP53_analysis$plot_list, path = "plots/coverage_saturation/", name = "TP53")
+
+
+# analysis for KRAS G12V mutations:
+KRAS_G12V_counts = pancancer_drivers[gene_name == "KRAS" & aachange == "G12V",
+                                     .(count = .N), by = .(gene_name, mut_type)]
+KRAS_G12V_rates = analyze_probability(gene_counts = KRAS_G12V_counts, analysis_name = "KRAS_G12V_muts", groupby = "donor")
+KRAS_G12D_counts = pancancer_drivers[gene_name == "KRAS" & aachange == "G12D",
+                                     .(count = .N), by = .(gene_name, mut_type)]
+KRAS_G12D_rates = analyze_probability(gene_counts = KRAS_G12D_counts, analysis_name = "KRAS_G12D_muts", groupby = "donor")
+
+# another TP53 driver mutations
+TP53_R248Q_counts = pancancer_drivers[gene_name == "TP53" & aachange == "R248Q",
+                                      .(count = .N), by = .(gene_name, mut_type)]
+TP53_R248Q_rates = analyze_probability(gene_counts = TP53_R248Q_counts, analysis_name = "TP53_R248Q_muts", groupby = "donor")
+
+TP53_R175H_counts = pancancer_drivers[gene_name == "TP53" & aachange == "R175H",
+                                      .(count = .N), by = .(gene_name, mut_type)]
+TP53_R175H_rates = analyze_probability(gene_counts = TP53_R175H_counts, analysis_name = "TP53_R175H_muts", groupby = "donor")
+
+# APC driver mutation
+APC_R1450_counts = pancancer_drivers[gene_name == "APC" & aachange == "R1450*",
+                                     .(count = .N), by = .(gene_name, mut_type)]
+APC_R1450_rates = analyze_probability(gene_counts = APC_R1450_counts, analysis_name = "APC_R1450_muts", groupby = "donor")
+
+# BRAF driver mutation
+BRAF_V600E_counts = pancancer_drivers[gene_name == "BRAF" & aachange == "V600E",
+                                      .(count = .N), by = .(gene_name, mut_type)]
+BRAF_V600E_rates = analyze_probability(gene_counts = BRAF_V600E_counts, analysis_name = "BRAF_V600E_muts", groupby = "donor")
+
+BRAF_values = BRAF_V600E_rates$result_plot_df[tissue == "colon"] |>
+  group_by(tissue, category) |>
+  summarize(across(c(value, ncells), mean)) |>
+  mutate(ncells_mut = value * ncells)
+BRAF_values
+
+exome_list = exome_analysis$result_plot_df
+driver_list = list(KRAS_G12V_rates$result_plot_df,
+                   KRAS_G12D_rates$result_plot_df,
+                   TP53_R248Q_rates$result_plot_df,
+                   TP53_R175H_rates$result_plot_df,
+                   APC_R1450_rates$result_plot_df,
+                   BRAF_V600E_rates$result_plot_df)
+driver_names = c("KRAS G12V", "KRAS G12D", "TP53 R248Q", "TP53 R175H", "APC R1450*", "BRAF V600E")
+names(driver_list) = driver_names
+drivers = rbindlist(driver_list, idcol = "driver_name")
+
+plot_driver_incidence = function(mutation_list, drivers, name, plot_rows = 2) {
+
+  mutation_list$driver_name = NA
+  driver_summary = drivers[,.(mean_mutated = mean(n_mutated_cells)), by = c("driver_name", "tissue", "category", "x")]
+  mut_summary = mutation_list[, .(mean_mutated = mean(n_mutated_cells)), by = c("driver_name", "tissue", "category", "x", "ncells")] |>
+    mutate(category_tissue = paste0(tissue, "_", category))
+
+  # add the matching "x" which is the closest to the driver rate observed.
+  for (i in 1:nrow(driver_summary)) {
+    tissue_select = driver_summary[["tissue"]][i]
+    category_select = driver_summary[["category"]][i]
+    mutrate_driver = driver_summary[["mean_mutated"]][i]
+
+    closest_x = mut_summary |>
+      filter(tissue == tissue_select,
+             category == category_select) |>
+      mutate(diff = abs(mean_mutated - mutrate_driver)) |>
+      filter(diff == min(diff)) |> pull(x)
+    driver_summary[["x"]][i] = closest_x
+  }
+
+  pl = list()
+  pl[["line_plot"]] = ggplot(mut_summary, aes(x = x, y = mean_mutated)) +
+    geom_line(aes(color = category_tissue), linewidth = 1) +
+    ggrepel::geom_text_repel(data = driver_summary, aes(label = driver_name), force = 3, size = 3,
+                             min.segment.length = 0, nudge_y = driver_summary$mean_mutated * 1.3,) +
+    facet_nested_wrap(. ~ factor(tissue, c("colon", "lung", "blood")) + category,
+                      nrow = plot_rows, nest_line = element_line(linetype = 1),
+                      axes = 'all', scales = "free_y") +
+    cowplot::theme_cowplot() +
+    scale_color_manual(values = tissue_category_colors) +
+    scale_x_continuous(labels = label_percent()) +
+    theme(legend.position = "none",
+          panel.spacing = unit(0.2,"lines"),
+          strip.background = element_rect(color = "white", fill = "white")) +
+    labs( x = 'percentile of exonic mutations\nOrdered from high to low',
+          y  = 'expected of cells with mutation',
+          title = "Distribution mutated positions across the exome")
+
+  pl[["beeswarmplot"]] = ggplot(mut_summary, aes(x = category, y = mean_mutated)) +
+    geom_boxplot(aes(color = category_tissue), outliers = FALSE) +
+    ggbeeswarm::geom_quasirandom(alpha = 0.5, aes(color = category_tissue), shape = 16, size = 0.7) +
+    ggrepel::geom_text_repel(data = driver_summary, aes(label = driver_name), size = 2.5,
+                             force = 3, nudge_x =  -0.2,
+                             min.segment.length = 0, nudge_y = driver_summary$mean_mutated * 1.3,) +
+    ggh4x::facet_grid2(. ~ factor(tissue, c("colon", "lung", "blood")),
+                       axes = 'all', scales = "free", space = "free_x", independent = "y") +
+    cowplot::theme_cowplot() +
+    scale_color_manual(values = tissue_category_colors) +
+    theme(legend.position = "none",
+          panel.spacing = unit(0.2,"lines"),
+          strip.background = element_rect(color = "white", fill = "white")) +
+    labs(x = NULL,
+         y  = 'expected of cells with mutation',
+         title = "Distribution of mutated cells across the exome")
+
+  # measurements of unevenness barplot decile:
+  mut_deciles = mut_summary |>
+    mutate(decile = ntile(x, 10)) %>%
+    group_by(tissue, category, category_tissue, decile) %>%
+    summarise(sum_mutated = sum(mean_mutated),
+              mean_mutrate = mean(mean_mutated),
+              median_mutrate = median(mean_mutated), .groups = "drop_last") |>
+    mutate(percentage = sum_mutated / sum(sum_mutated),
+           percentage_label = paste0(round(percentage * 100, 1), "%"))
+
+  pl[["barplot_decile"]] = ggplot(mut_deciles, aes(x = decile,  y = mean_mutrate, fill = category_tissue)) +
+    geom_col() +
+    geom_text(aes(label = percentage_label, y = mean_mutrate), vjust = -0.2, position = position_dodge(0.9)) +
+    ggh4x::facet_nested_wrap(. ~ factor(tissue, c("colon", "lung", "blood")) + category, nrow = plot_rows,
+                             nest_line = element_line(linetype = 1), scale = "free") +
+    scale_fill_manual(values = tissue_category_colors) +
+    scale_y_continuous(expand = expansion(mult = c(0, 0.1))) +
+    scale_x_continuous(breaks = 1:10, labels = scales::label_ordinal()) +
+    labs(x = "decile sites ordered by mutagenicity", y = "mean number of mutations/site",
+         title = paste("Mutation accumulation by decile:", name),
+         subtitle = "percentage of total mutations contributed in %") +
+    cowplot::theme_cowplot() +
+    coord_cartesian(clip = "off") +
+    theme(legend.position = "none",
+          panel.spacing = unit(0.2,"lines"),
+          strip.background = element_rect(color = "white", fill = "white"))
+
+  # 1. Percentile barplot for the measurements of unevenness barplot percent for the probability
+  mut_percent = mut_summary |>
+    mutate(percent = ntile(x, 100)) %>%
+    group_by(tissue, category, category_tissue, percent) %>%
+    mutate(mean_mutated = mean_mutated / ncells ) |>  # transform the mean mutated fraction to the probability (by dividing by the number of cells)
+    summarise(sum_mutated = sum(mean_mutated),
+              mean_mutrate = mean(mean_mutated),
+              median_mutrate = median(mean_mutated), .groups = "drop_last") |>
+    mutate(percentage = sum_mutated / sum(sum_mutated),
+           percentage_label = paste0(round(percentage * 100, 1), "%"))
+
+  mut_percent_50 = mut_percent |>
+    group_by(tissue, category, category_tissue) |>
+    mutate(ymax = max(mean_mutrate)) |>
+    filter(percent <= 50) |>
+    group_by(tissue, category, category_tissue, ymax) |>
+    summarize(bottom_50 = sum(percentage),
+              y_position = max(mean_mutrate)) |>
+    mutate(label = paste("share of total mutations\nlowest 50%:\n", round(bottom_50 * 100, 1), "%"))
+
+  pl[["barplot_percent_probability"]] = ggplot(mut_percent, aes(x = percent,  y = mean_mutrate, fill = category_tissue)) +
+    geom_col() +
+    geom_text(data = mut_percent |> filter(percent > 97),
+              aes(label = percentage_label, y = mean_mutrate), vjust = -0.2, position = position_dodge(0.9)) +
+    ggpubr::geom_bracket(data = mut_percent_50, aes(xmin = 0, xmax = 50,
+                                                    y.position = ymax * 0.15, label = label)) +
+    ggh4x::facet_nested_wrap(. ~ factor(tissue, c("blood", "colon", "lung")) + category, nrow = plot_rows, scale = "free",
+                             nest_line = element_line(linetype = 1)) +
+    scale_fill_manual(values = tissue_category_colors) +
+    scale_y_continuous(expand = expansion(mult = c(0, 0.1))) +
+    scale_x_continuous(breaks = c(1,50, 100), labels = label_ordinal()) +
+    labs(x = "percentile sites ordered by mutagenicity", y = "Probability for mutation for single cell",
+         title = paste("Probability of mutations across cells by percent bins:", name),
+         subtitle = "share of total mutations by percentile in %") +
+    cowplot::theme_cowplot() +
+    coord_cartesian(clip = "off") +
+    theme(legend.position = "none",
+          panel.spacing = unit(0.2,"lines"),
+          strip.background = element_rect(color = "white", fill = "white"))
+
+  # 2:Percentile barplot now for the number of mutated cells
+  mut_ncells = mut_summary |>
+    mutate(percent = ntile(x, 100)) %>%
+    group_by(tissue, category, category_tissue, percent) %>%
+    summarise(sum_mutated = sum(mean_mutated),
+              mean_mutrate = mean(mean_mutated),
+              median_mutrate = median(mean_mutated), .groups = "drop_last") |>
+    mutate(percentage = sum_mutated / sum(sum_mutated),
+           percentage_label = paste0(round(percentage * 100, 1), "%"))
+
+  mut_ncells_label = mut_ncells |>
+    group_by(tissue, category, category_tissue) |>
+    mutate(ymax = max(mean_mutrate)) |>
+    filter(percent <= 50) |>
+    group_by(tissue, category, category_tissue, ymax) |>
+    summarize(min = min(mean_mutrate),
+              bottom_50 = mean(mean_mutrate),
+              max = max(mean_mutrate),
+              y_position = max(mean_mutrate)) |>
+    mutate(foldchange = ymax / min,
+           label = paste0("mutated cells/site\nlowest 50%:\n avg: ", format(bottom_50, digits =  2), "\n(", format(min, digits = 1), "-",format(max, digits = 1), ")"))
+
+  pl[["barplot_percent_ncells"]] = ggplot(mut_ncells, aes(x = percent,  y = mean_mutrate, fill = category_tissue)) +
+    geom_col() +
+    geom_text(data = mut_ncells |> filter(percent > 99),
+              aes(label = percentage_label, y = mean_mutrate), vjust = -0.2, position = position_dodge(0.9)) +
+    ggpubr::geom_bracket(data = mut_ncells_label, aes(xmin = 0, xmax = 50,
+                                                      y.position = ymax * 0.15, label = label)) +
+    ggh4x::facet_nested_wrap(. ~ factor(tissue, c("blood", "colon", "lung")) + category, nrow = plot_rows,
+                             nest_line = element_line(linetype = 1), scale = "free") +
+    scale_fill_manual(values = tissue_category_colors) +
+    scale_y_continuous(expand = expansion(mult = c(0, 0.1))) +
+    scale_x_continuous(breaks = c(1,50, 100), labels = label_ordinal()) +
+    labs(x = "percentile sites ordered by mutagenicity", y = "Number of cells mutated per mutation site",
+         title = paste("N of mutated cells/site by percent bins:", name),
+         subtitle = "percentage of total mutations contributed in %") +
+    cowplot::theme_cowplot() +
+    coord_cartesian(clip = "off") +
+    theme(legend.position = "none",
+          panel.spacing = unit(0.2,"lines"),
+          strip.background = element_rect(color = "white", fill = "white"))
+  pl[["barplot_percent_ncells"]]
+
+  # Lorenz plot with gini statistics
+  gini_table = mut_summary |>
+    group_by(tissue, category, category_tissue) |>
+    summarize(gini = ineq::Gini(mean_mutated)) |>
+    mutate(label = paste(category_tissue, " Gini:", round(gini,2)))
+
+  lc_values = mut_summary |>
+    select(category_tissue, mean_mutated, x) |>
+    pivot_wider(names_from = category_tissue, values_from = mean_mutated) |>
+    arrange(x)
+
+  df_lc = sapply(lc_values[,-1], \(x) ineq::Lc(x)$L) |>
+    as.data.frame() |>
+    mutate(x = ineq::Lc(lc_values[[2]])$p)
+  df_lc_plot = df_lc |>
+    pivot_longer(-x, names_to = "category_tissue")
+
+  pl[["lorenz_plot"]] = df_lc_plot |>
+    ggplot(aes(x = x, color = category_tissue, y = value)) +
+    geom_line() +
+    geom_abline(intercept = 0, slope = 1, linetype = "dashed") +
+    coord_cartesian(clip = 'off') +
+    scale_color_manual(values = tissue_category_colors, labels = unique(gini_table$label)) +
+    scale_x_continuous(labels = label_percent(), expand = expansion(mult = c(0, 0)), limits = c(NA,1)) +
+    scale_y_continuous(expand = expansion(mult = c(0.0, 0)), limits = c(NA,1)) +
+    labs(x = expression("Sites by mutability: low" %->% "   high"),
+         y = 'Cumulative share of mutations', color = NULL) +
+    cowplot::theme_cowplot() +
+    theme(legend.position = "inside", legend.position.inside = c(0.05, 0.75))
+  pl[["lorenz_plot"]]
+
+  return(pl)
+}
+
+# exploration of mutation distribution plots for the exome
+plot_list = plot_driver_incidence(mutation_list = exome_list, drivers = drivers, name = "exome")
+save_plots(plot_list, "plots/coverage_saturation/", "exome")
+
+# save the plots for all normal tissues
+exome_normal_list = exome_list |> filter(category %in% c("normal", "non-smoker"))
+drivers_normal = drivers |> filter(category %in% c("normal", "non-smoker"))
+plot_list_normal = plot_driver_incidence(mutation_list = exome_normal_list,
+                                         drivers = drivers_normal, name = "normal_exome", plot_rows = 1)
+save_plots(plot_list_normal, "plots/coverage_saturation/", name = "normal_exome_wide", width = 10, height = 5)
+save_plots(plot_list_normal, "plots/coverage_saturation/", name = "normal_exome", width = 6.5, height = 5)
+plot_list_normal$lorenz_plot
+
+# exploration of mutation distribution plots for TP53 driver mutations:
+TP53_plots = plot_driver_incidence(mutation_list = TP53_analysis$result_plot_df,
+                                   drivers = drivers[grepl("TP53", driver_name)],
+                                   name = "TP53")
+save_plots(TP53_plots, "plots/coverage_saturation/", "TP53_drivers")
