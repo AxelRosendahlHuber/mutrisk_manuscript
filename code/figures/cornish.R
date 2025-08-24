@@ -3,7 +3,6 @@
 library(readxl)
 GE_CRC = readxl::read_excel("raw_data/genomicsengland/41586_2024_7747_MOESM4_ESM.xlsx", sheet = 7, skip = 6)
 
-
 GE_CRC |>
   filter(Gene == "KRAS") |>
   select(Gene, Mutation, Carriers...8, `Non-carriers...9`) |>

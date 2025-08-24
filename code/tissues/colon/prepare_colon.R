@@ -205,11 +205,10 @@ sig_rate_files = list.files(paste0("processed_data/", tissue), pattern = 'sig_ra
 rates = lapply(sig_rate_files, fread)
 names(rates) = gsub("_sig_rate_per_sample.tsv.gz", "", basename(sig_rate_files))
 sig_donor_rates = rbindlist(rates, use.names = TRUE, fill = TRUE) |>
-  mutate(category = factor(category, levels = levels(metadata$category)))  |>
-  inner_join(metadata) |>
+  mutate(category = factor(category, levels = levels(metadata$category))) |>
   group_by(donor, signature) |>
-  summarize(across(contains(">"), mean)) |>
-  pivot_longer(contains(">"))
+  summarize(across(contains(">"), mean), .groups = "drop") |>
+  pivot_longer(contains(">"), names_to = "mut_type", values_to = "mle")
 fwrite(sig_donor_rates, file = paste0("processed_data/", tissue, "/", tissue, "_sig_donor_rates.tsv.gz"))
 
 # load the mutation rates with CI
@@ -235,3 +234,12 @@ ratios = lapply(dnds_files, \(x) {
   rbindlist(idcol = "category") |>
   mutate(category = factor(category, levels = levels(metadata$category)))
 fwrite(ratios, file = paste0("processed_data/", tissue, "/", tissue, "_mut_ratios.tsv.gz"))
+
+donors = metadata$donor |> unique()
+donors3 =  rbindlist(rates, use.names = TRUE, fill = TRUE) |> pull(donor) |> unique()
+donors2  = sig_donor_rates$donor |> unique()
+setdiff(donors, donors3)
+setdiff(donors, donors2)
+
+
+

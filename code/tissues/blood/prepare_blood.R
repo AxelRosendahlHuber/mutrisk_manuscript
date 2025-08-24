@@ -93,14 +93,17 @@ fwrite(cell_muts_filtered, file = paste0("processed_data/", tissue, "/", tissue,
 fwrite(metadata_filtered, paste0(outdir, tissue, "_metadata.tsv"))
 
 # make list for signatures used for re-fitting:
-
 mitchell_2025_sigs = fread("raw_data/blood/blood_chemotherapy/chemotherapy-v1.0/5_Mutational_signature_analysis/mutational_signatures_analysis/SBS_signatures_profiles.txt") |>
   column_to_rownames("Type")
 mitchell_2025_sigs = mitchell_2025_sigs[mutrisk:::TRIPLETS_96, ]
 
 input_sig_list = list(
-  normal = mitchell_2025_sigs[, c("SBS1+SBS5", "SBSBlood")],
-  chemotherapy = mitchell_2025_sigs)
+  normal = as.matrix(mitchell_2025_sigs[, c("SBS1+SBS5", "SBSBlood")]),
+  chemotherapy = as.matrix(mitchell_2025_sigs))
+
+colnames(input_sig_list$normal) = c("SBS1SBS5", "SBSBlood")
+### for now, only do the analyses using the normal blood:
+metadata = metadata |> filter(category == "normal")
 
 list_results = list()
 for (i in unique(metadata$category)) {

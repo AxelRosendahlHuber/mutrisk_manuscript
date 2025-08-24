@@ -2,8 +2,9 @@
 library(data.table)
 library(tidyverse)
 library(patchwork)
-library(GenomicRanges)
+library(rtracklayer)
 library(scales)
+library(mutrisk)
 source("code/functions/plot_mut_prob.R")
 
 # load R functions

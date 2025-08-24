@@ -1,13 +1,8 @@
 # Figure_4_blood new
-library(data.table)
-library(tidyverse)
-library(GenomicRanges)
-library(rtracklayer)
+source("code/functions/analysis_variables.R")
 library(patchwork)
 library(cowplot)
 library(geomtextpath)
-library(mutrisk)
-library(wintr)
 tissue = "blood"
 blood_colors = "#ff725c"
 
@@ -24,14 +19,14 @@ expected_rates = fread(paste0("processed_data/", tissue, "/", tissue, "_expected
 ratios = fread(paste0("processed_data/", tissue, "/", tissue, "_mut_ratios.tsv.gz"))
 sig_donor_rates = fread(paste0("processed_data/", tissue, "/", tissue, "_sig_donor_rates.tsv.gz"))
 
-
 # load the GENIE data
 genie_blood = fread("processed_data/GENIE_17/GENIE_17_processed.txt.gz") |>
   filter(CANCER_TYPE %in% c("Leukemia","B-Lymphoblastic Leukemia/Lymphoma","Myeloproliferative Neoplasms",
-                            "Myelodysplastic Syndromes","Mature T and NK Neoplasms","Myelodysplastic/Myeloproliferative Neoplasms"))
+                            "Myelodysplastic Syndromes","Mature T and NK Neoplasms",
+                            "Myelodysplastic/Myeloproliferative Neoplasms"))
 
 # load boostdm_ch-genie-cosmic intersections
-cancer_bDM = fread("processed_data/boostdm/boostdm_genie_cosmic/CH_boostDM_cancer.txt.gz")
+CH_bDM = fread("processed_data/boostdm/boostdm_genie_cosmic/CH_boostDM_cancer.txt.gz")
 
 ##### PLOTTING #####
 # check which mutation is the R882H frequently mutated hotspot
@@ -40,7 +35,7 @@ cancer_bDM = fread("processed_data/boostdm/boostdm_genie_cosmic/CH_boostDM_cance
 select_gene = "KRAS"
 select_aachange = "G12V"
 
-KRAS_G12V_hotspot = cancer_bDM[ gene_name == select_gene & aachange == select_aachange,
+KRAS_G12V_hotspot = CH_bDM[ gene_name == select_gene & aachange == select_aachange,
                                 c("gene_name", "mut_type", "aachange", "position", "driver")]
 expected_rate_KRAS_G12V = expected_rates |>
   inner_join(KRAS_G12V_hotspot, by = "mut_type") |>
@@ -51,7 +46,7 @@ expected_rate_KRAS_G12V = expected_rates |>
   summarise(across(c(mle, cilow, cihigh, age), mean))
 
 # calculate the mutational frequencies for the mean KRAS rates:
-KRAS_G12_hotspot = cancer_bDM[gene_name == select_gene & position == 12,c("gene_name", "mut_type", "aachange", "position", "driver")]
+KRAS_G12_hotspot = CH_bDM[gene_name == select_gene & position == 12,c("gene_name", "mut_type", "aachange", "position", "driver")]
 mean_KRAS_rates = expected_rates |>
   inner_join(KRAS_G12_hotspot, by = "mut_type") |>
   left_join(metadata) |>
@@ -72,10 +67,10 @@ figure_2a_KRAS = ggplot(expected_rate_KRAS_G12V,  aes(x = age, y = mle, fill = c
 figure_2a_KRAS
 
 # Get the actual values for the graphic to be correct
-DNMT3A_R882H_hotspot = cancer_bDM[aachange == "R882C" & gene_name == "DNMT3A", c("gene_name", "mut_type", "aachange", "position", "driver")]
+DNMT3A_R882H_hotspot = CH_bDM[aachange == "R882C" & gene_name == "DNMT3A", c("gene_name", "mut_type", "aachange", "position", "driver")]
 DNMT3A_R882H_hotspot |> left_join(triplet_match_substmodel)
 
-DNMT3A_R882H_hotspot = cancer_bDM[aachange == "R882H" & gene_name == "DNMT3A",c("gene_name", "mut_type", "aachange", "position", "driver")]
+DNMT3A_R882H_hotspot = CH_bDM[aachange == "R882H" & gene_name == "DNMT3A",c("gene_name", "mut_type", "aachange", "position", "driver")]
 expected_rate_DNMT3A_R882H = expected_rates |>
   inner_join(DNMT3A_R882H_hotspot, by = "mut_type") |>
   left_join(metadata) |>
@@ -101,14 +96,11 @@ figure_2a = ggplot(expected_rate_DNMT3A_R882H,
 figure_2a
 ggsave("plots/blood/Figure_2A.png", width = 5, height = 4.5, bg = "white")
 
-
-##### Make a set of plots for
-
 # Get the actual values for the graphic to be correct
-DNMT3A_R882H_hotspot = cancer_bDM[aachange == "R882C" & gene_name == "DNMT3A", c("gene_name", "mut_type", "aachange", "position", "driver")]
+DNMT3A_R882H_hotspot = CH_bDM[aachange == "R882C" & gene_name == "DNMT3A", c("gene_name", "mut_type", "aachange", "position", "driver")]
 DNMT3A_R882H_hotspot |> left_join(triplet_match_substmodel)
 
-DNMT3A_R882H_hotspot = cancer_bDM[gene_name == "DNMT3A" & driver == TRUE ,c("gene_name", "mut_type", "aachange", "position", "driver")]
+DNMT3A_R882H_hotspot = CH_bDM[gene_name == "DNMT3A" & driver == TRUE  & aachange == "R882H" ,c("gene_name", "mut_type", "aachange", "position", "driver")]
 expected_rate_DNMT3A_R882H = expected_rates |>
   inner_join(DNMT3A_R882H_hotspot, by = "mut_type") |>
   left_join(metadata) |>
@@ -136,7 +128,8 @@ figure_2a
 ggsave("plots/blood/Figure_2A.png", width = 5, height = 4.5, bg = "white")
 
 ###
-TP53_drivers_hotspot = cancer_bDM[driver == TRUE & gene_name == "TP53",c("gene_name", "mut_type", "aachange", "position", "driver")]
+gene_oi = "PPM1D"
+TP53_drivers_hotspot = CH_bDM[gene_name == gene_oi,c("gene_name", "mut_type", "aachange", "position", "driver")]
 expected_rate_TP53_drivers = expected_rates |>
   inner_join(TP53_drivers_hotspot, by = "mut_type") |>
   left_join(metadata) |>
@@ -157,7 +150,7 @@ TP53_drivers_plot = ggplot(expected_rate_TP53_drivers,
   scale_fill_manual(values = blood_colors) +
   scale_color_manual(values = blood_colors) +
   theme_cowplot() +
-  labs(subtitle = "N cells with TP53 driver mutations*",y = "number of cells",
+  labs(subtitle = paste("N cells with", gene_oi,  "driver mutations*") ,y = "number of cells",
        x = "Age (years)",fill = NULL) +
   theme(legend.position = "inside", legend.position.inside = c(0.05, 0.8))
 TP53_drivers_plot
@@ -168,7 +161,7 @@ single_cell_rate = expected_rate_DNMT3A_R882H |>
 R882H_rate = lm(mle ~ age, single_cell_rate)
 
 # barplot for the individual mutation consequences
-DNMT3A_counts_consequence = cancer_bDM[gene_name == "DNMT3A",.N, by = c("gene_name", "mut_type", "consequence")]
+DNMT3A_counts_consequence = CH_bDM[gene_name == "DNMT3A",.N, by = c("gene_name", "mut_type", "consequence")]
 expected_DNMT3A_muts = expected_rates |>
   left_join(DNMT3A_counts_consequence, relationship = "many-to-many") |>
   inner_join(ratios, relationship = "many-to-many") |>
@@ -178,7 +171,7 @@ expected_DNMT3A_muts = expected_rates |>
   group_by(consequence, category) |>
   summarize(across(c(mle, cilow, cihigh), mean))
 
-DNMT3A_counts_boostdm_ch = cancer_bDM[gene_name == "DNMT3A", .N, by = c("gene_name", "mut_type", "driver")]
+DNMT3A_counts_boostdm_ch = CH_bDM[gene_name == "DNMT3A", .N, by = c("gene_name", "mut_type", "driver")]
 expected_DNMT3A_muts = expected_rates |>
   left_join(DNMT3A_counts_boostdm_ch, relationship = "many-to-many") |>
   inner_join(ratios, relationship = "many-to-many") |>
@@ -217,7 +210,7 @@ DNMT3A_muts = expected_rates |>
   left_join(ratios[gene_name == "DNMT3A"]) |>
   mutate(across(c(mle, cilow, cihigh), ~ . * ncells * ratio)) |>
   left_join(triplet_match_substmodel) |>
-  left_join(cancer_bDM[gene_name == "DNMT3A", ], by = c("mut_type", "gene_name"), relationship = "many-to-many") |>
+  left_join(CH_bDM[gene_name == "DNMT3A", ], by = c("mut_type", "gene_name"), relationship = "many-to-many") |>
   mutate(boostdm_ch = ifelse(driver, "driver", "non-driver")) |>
   setDT()
 
@@ -249,10 +242,11 @@ DNMT3A_count_total = DNMT3A_count |>
 # get the level of mutations for DNMT3A drivers, TP53 drivers, all CH drivers.
 ####
 
+
 ####
 # DNMT3A driver muts
 ####
-site_freqs_DNMT3A_drivers = cancer_bDM[gene_name == "DNMT3A" & driver == TRUE, .N, by = c("mut_type", "gene_name")]
+site_freqs_DNMT3A_drivers = CH_bDM[gene_name == "DNMT3A" & driver == TRUE, .N, by = c("mut_type", "gene_name")]
 mrate_DNMT3A_drivers = get_gene_rate( exp_rates = expected_rates, metadata = metadata,
                                       site_freqs = site_freqs_DNMT3A_drivers, ratios = ratios, ncells = ncells)
 plot_mrate(mrate_DNMT3A_drivers, title = "number of cells with DNMT3A driver mutations", colors = blood_colors)
@@ -285,27 +279,49 @@ plot_mrate(mrate_DNMT3A_drivers1 |> filter(category == "normal"),
            colors = blood_colors)
 ggsave("plots/blood/ncells_DNMT3A_drivers_normal_points.png", width = 8, height = 5,  bg = "white")
 
-# all TP53 driver muts:
-site_freqs_TP53_drivers = cancer_bDM[gene_name == "TP53" & driver == TRUE, .N, by = c("mut_type", "gene_name")]
-mrate_TP53_drivers_100k = get_gene_rate(exp_rates = expected_rates,metadata = metadata,
-                                        site_freqs = site_freqs_TP53_drivers, ratios = ratios, ncells = ncells) |>
-  mutate(ncells = 1e5)
-mrate_TP53_drivers_25 = get_gene_rate(exp_rates = expected_rates,metadata = metadata,
-                                      site_freqs = site_freqs_TP53_drivers, ratios = ratios, ncells = 2.5e3) |>
-  mutate(ncells = 2.5e3)
-mrate_TP53_drivers_1.3m = get_gene_rate(exp_rates = expected_rates,metadata = metadata,
-                                        site_freqs = site_freqs_TP53_drivers, ratios = ratios, ncells = 1.3e6) |>
-  mutate(ncells = 1.3e6)
+# get the driver mutations for a list of genes, get the expected rates for a set of different values:
+genes_of_i = c("ASXL1", "CHEK2", "TP53", "PPM1D", "DNMT3A", "TET2")
+total_list = list()
+for (gene_oi in genes_of_i) {
+
+  site_freqs_drivers = CH_bDM[gene_name %in% gene_oi & driver == TRUE, .N, by = c("mut_type", "gene_name")]
+  mrate_drivers_100k = get_gene_rate(exp_rates = expected_rates,metadata = metadata,
+                                          site_freqs = site_freqs_drivers, ratios = ratios, ncells = ncells) |>
+    mutate(ncells = 1e5, cell_level = "estimate")
+  mrate_drivers_25 = get_gene_rate(exp_rates = expected_rates,metadata = metadata,
+                                        site_freqs = site_freqs_drivers, ratios = ratios, ncells = 2.5e3) |>
+    mutate(ncells = 2.5e3,  cell_level = "low")
+  mrate_drivers_1.3m = get_gene_rate(exp_rates = expected_rates,metadata = metadata,
+                                          site_freqs = site_freqs_drivers, ratios = ratios, ncells = 1.3e6) |>
+    mutate(ncells = 1.3e6, cell_level = "high")
+  total_cells = rbind(mrate_drivers_25, mrate_drivers_100k, mrate_drivers_1.3m)
+  total_list[[gene_oi]] = total_cells
+}
+
+# sets to compare with the plot of Masha
+gene_rates = rbindlist(total_list, idcol = "gene")
+label = gene_rates |> group_by(gene_name, cell_level) |>
+  filter(mle == max(mle))
+ggplot(gene_rates, aes(x = age, y = mle, group = cell_level)) +
+  geom_point() +
+  geom_smooth(method = 'lm', se = FALSE, color = 'darkred') +
+  geom_text(data = label, aes(label = format(mle, digits = 1, scientific = FALSE ), hjust = -0.1)) +
+  facet_wrap(gene_name ~ . , scales = "free") +
+  theme_cowplot() +
+  scale_x_continuous(limits = c(0, 85)) +
+  labs(x = "Age (years)", y = "number of expected driver mutations")
 
 ###
 # signature-specific modeling of DNMT3A mutation rates
 ###
 
 # Load signature specific mutation rates
-signature_rates_files = list.files("processed_data/blood/",pattern = "sig_patient_rates.tsv.gz",  full.names = TRUE)
+signature_rates_files = "processed_data/blood/blood_sig_donor_rates.tsv.gz"
 names(signature_rates_files) = gsub("_sig_patient_rates.tsv.gz", "",basename(signature_rates_files))
-signature_rates = lapply(signature_rates_files, fread) |>
-  rbindlist(idcol = "category")
+signature_rates = fread(signature_rates_files) |>
+  mutate(category = "normal") |>
+  dplyr::rename(mut_type = name, mle = value) |>
+  left_join(metadata |> select(donor, age, sampleID) |> distinct())
 
 mrate_sigs_DNMT3A_driver = get_gene_rate_sig(exp_rates = signature_rates, metadata,
                                              site_freqs = site_freqs_DNMT3A_drivers,ratios = ratios)
@@ -322,7 +338,7 @@ mrate_sigs_DNMT3A_driver |>
   scale_y_continuous(expand = expansion(mult = c(0, 0.1)), labels = comma) +
   theme(legend.position = "inside", legend.position.inside = c(0.05, 0.65),
         legend.key.size = unit(4, "mm"), legend.title = element_blank()  ) +
-  labs(y = "number of mutated cells", x = "Age (years)")
+  labs(y = "number of mutated cells", x = "Age (years)", title = "DNMT3A driver mutatoins by signature")
 ggsave("plots/blood/number_of_cells_mutated_by_sig.png", width = 10, height = 4.2, bg = "white")
 
 # get hotspot mutation levels for blood
@@ -330,7 +346,8 @@ DNMT3A_R882H_hotspot_sig_rates = DNMT3A_R882H_hotspot |>
   left_join(signature_rates, by = "mut_type") |>
   left_join(metadata) |>
   group_by(age, signature, category) |>
-  summarize(across(c(mle, cilow, cihigh), mean))
+  summarize(mle = mean(mle))
+
 ggplot(DNMT3A_R882H_hotspot_sig_rates |> filter(category == "normal"),
        aes(x = age, y = mle * ncells, fill = signature)) +
   geom_col() +
@@ -354,22 +371,22 @@ ggsave("plots/blood/R882H_stop_rates_all.png", width = 10, height = 4, bg = "whi
 ####
 # mutation rates for individual clones by donor
 ####
-DNMT3A_total = cancer_bDM[gene_name == "DNMT3A", .N, by = c("mut_type", "gene_name", "consequence")]
+DNMT3A_total = CH_bDM[gene_name == "DNMT3A", .N, by = c("mut_type", "gene_name", "consequence")]
 consequence_rates = DNMT3A_total |>
   left_join(signature_rates |> filter(category == "normal"), relationship = "many-to-many",  by = "mut_type") |>
   left_join(ratios) |>
-  mutate(across(c(mle, cilow, cihigh), ~ . * N * ncells * ratio)) |>
+  mutate(mle = mle * N * ncells * ratio) |>
   group_by(consequence, sampleID, signature) |>
-  summarize(across(c(mle, cilow, cihigh), sum))
+  summarize(mle = sum(mle))
 
 # DNMT3A mut types drivers
-DNMT3A_total = cancer_bDM[gene_name == "DNMT3A",.N, by = c("mut_type", "gene_name", "driver")]
+DNMT3A_total = CH_bDM[gene_name == "DNMT3A",.N, by = c("mut_type", "gene_name", "driver")]
 driver_rates = DNMT3A_total |>
   left_join(signature_rates, relationship = "many-to-many", by = "mut_type") |>
   left_join(ratios, ) |>
-  mutate(across(c(mle, cilow, cihigh), ~ . * N * ncells * ratio)) |>
+  mutate(mle = mle * N * ncells * ratio) |>
   group_by(driver, sampleID, signature) |>
-  summarize(across(c(mle, cilow, cihigh), sum)) |>
+  summarize(mle = sum(mle)) |>
   arrange(driver, sampleID, signature)
 
 driver_muts = driver_rates |>
@@ -390,24 +407,6 @@ DNMT3A_drivers_by_sig = driver_muts |>
         legend.position = "inside", legend.position.inside = c(0.05, 0.7)) +
   scale_y_continuous(expand = expansion(mult = c(0, 0.1)), labels = comma)
 ggsave("plots/blood/driver_muts_by_driver_state.png", DNMT3A_drivers_by_sig,  width = 7, height = 4)
-
-#####
-# additional plots: SIGNATURE-activity by sample
-####
-sig_contribution = fread("processed_data/blood/signature_contributions.tsv")
-# initial plot with number of mutations per donor over time:
-sig_contri = sig_contribution |>
-  left_join(metadata) |>
-  filter(category == "normal") |>
-  pivot_longer(starts_with("SBS"), names_to = "signature", values_to = "contribution")
-
-# number of active signatures in the tissue
-sig_contribution |>
-  left_join(metadata) |>
-  dplyr::filter(category == "normal") |>
-  select(starts_with("SBS")) |>
-  colSums() |>
-  sort()
 
 # Read the UKbiobank data:
 # make figures for CH, DNMT3A and DNMT3A R882H mutation
@@ -454,10 +453,10 @@ comparison_muts_CH = rbind(age_mut, age_ch, ukbiobank_ch)
 
 ggplot(comparison_muts_CH, aes(color = type)) +
   geom_point(aes(x = age, y = mle)) +
-  geom_smooth(aes(x = age, y = mle), method = "lm", fullrange = TRUE) +
+  geom_smooth(aes(x = age, y = mle), method = "lm", fullrange = TRUE, se = FALSE) +
   theme_cowplot() +
-  scale_y_continuous(limits = c(0, 0.15), labels = percent) +
-  scale_x_continuous(limits = c(0, 80)) +
+  scale_y_continuous( labels = percent) +
+#  scale_x_continuous(limits = c(0, 80)) +
   labs(y = "percent of individuals with R882H mutation", x = "Age (years") +
   ggtitle("estimations of CH rate - occurrence delay")
 comparison_muts_CH
@@ -465,14 +464,13 @@ comparison_muts_CH
 ggsave("plots/blood/comparison_muts_CH.png", width = 6, height = 4.5, bg = "white")
 
 # plot mutation rates in all genes
-# all TP53 driver muts:
-site_freqs_ch_drivers = cancer_bDM[driver == TRUE, .N, by = c("mut_type", "gene_name")]
+site_freqs_ch_drivers = CH_bDM[driver == TRUE, .N, by = c("mut_type", "gene_name")]
 mrate_CH_drivers = get_gene_rate(exp_rates = expected_rates, metadata = metadata,
                                  site_freqs = site_freqs_ch_drivers,  ratios = ratios,  ncells = ncells)
 
 # Get the last point of each group
-df_last <- mrate_CH_drivers %>%
-  group_by(gene_name) %>%
+df_last <- mrate_CH_drivers |>
+  group_by(gene_name) |>
   filter(mle == max(mle)) |>
   arrange(mle) |>
   tail(15)
@@ -496,8 +494,8 @@ min_ncells = 2.5e4
 max_ncells = 1.3e6
 
 # DNMT3A mutations all
-site_freqs_ch_drivers = cancer_bDM[driver == TRUE & gene_name == "DNMT3A", .N, by = c("mut_type", "gene_name")]
-estimates_area = get_mut_est_area(site_freqs = site_freqs_ch_drivers, exp_rates = expected_rates,
+site_freqs_ch_drivers = CH_bDM[driver == TRUE & gene_name == "DNMT3A", .N, by = c("mut_type", "gene_name")]
+estimates_area = get_mut_est_conf(site_freqs = site_freqs_ch_drivers, exp_rates = expected_rates,
                                   metadata = metadata, ratios = ratios, ncells = ncells,
                                   min_ncells = min_ncells, max_ncells = max_ncells)
 
@@ -520,15 +518,15 @@ label_max = paste0("1.3M HSCs\nEst. muts: 80y: ", round(estimates_area[["model_m
 
 # plot mutation rate estimates for different initial estimates - plot in the confidence interval
 plot_confi = plot_muts_area(estimates_area)  +
-  labs(y = "Number of cells with DNMT3A\nR882H driver mutation") +
-  annotate("text", x = 80, y = estimates_area[["model_ncells"]][8], label = label_mid, hjust = 0, vjust = 0) +
-  annotate("text", x = 80, y = estimates_area[["model_min"]][8], label = label_min, hjust = 0, vjust = 0.8, color = "grey30") +
-  annotate("text", x = 80, y = estimates_area[["model_max"]][8], label = label_max, hjust = 0, color = "grey30") +
+  labs(y = "Number of cells with DNMT3A\ driver mutation") +
+  annotate("text", x = 80, y = estimates_area[["model_ncells"]][8], label = label_mid, hjust = 0, vjust = 0, size = 3.5) +
+  annotate("text", x = 80, y = estimates_area[["model_min"]][8], label = label_min, hjust = 0, vjust = 0.6, color = "grey30", size = 3.5) +
+  annotate("text", x = 80, y = estimates_area[["model_max"]][8], label = label_max, hjust = 0, color = "grey30", size = 3.5) +
   theme(plot.margin = margin(5,32,5,5, unit = "mm")) +
   coord_cartesian(clip = "off")
 plot_confi
 
-site_freqs_ch_drivers = cancer_bDM[driver == TRUE & gene_name == "DNMT3A" & aachange == "R882H",.N,by = c("mut_type", "gene_name")]
+site_freqs_ch_drivers = CH_bDM[driver == TRUE & gene_name == "DNMT3A" & aachange == "R882H",.N,by = c("mut_type", "gene_name")]
 estimates_area = get_mut_est_area(site_freqs = site_freqs_ch_drivers, exp_rates = expected_rates,
                                   metadata = metadata, ratios = ratios, ncells = ncells,
                                   min_ncells = min_ncells,max_ncells = max_ncells)
@@ -592,3 +590,4 @@ figure_4 = wrap_plots(empty_plot , f4p$figure_2a , f4p$DNMT3A_drivers_by_sig,
   theme(plot.tag = element_text(face = 'bold'))
 
 ggsave("plots/manuscript/main_figures/figure_4.svg", figure_4, width = 14, height = 12, bg = "white")
+
