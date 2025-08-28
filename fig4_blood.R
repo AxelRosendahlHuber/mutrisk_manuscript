@@ -118,9 +118,24 @@ figure_4b = ggplot(mutation_list_ci_prob,
 figure_4b
 
 
+
+ggplot(mutation_list_ci_prob |> filter(name == "DNMT3A_watson_drivers"),
+                   aes(x = age, y = mle, fill = category)) +
+  geom_errorbar(aes(ymin = cilow, ymax = cihigh, color = category),
+                width = 0,
+                show.legend = FALSE) +
+  facet_wrap(. ~ name, scales = "free_y") +
+  geom_point(shape = 21, size = 2.4, color = "white", stroke = 0.3) +
+  theme_cowplot() +
+  labs(y = "number of cells/individual",
+       x = "Age (years)",fill = NULL) +
+  theme(legend.position = "none")
+
+
 # get the 'weigthed' exposure terms
 # individual rates for driver mutations:
 DNMT3A_driver_list = split(DNMT3A_watson_drivers, DNMT3A_watson_drivers$aachange)
+DNMT3A_driver_list = DNMT3A_driver_list[c("R882H", "R882C")]
 name = names(DNMT3A_driver_list)[1]
 list_drivers = list()
 
@@ -166,188 +181,8 @@ expansion_group_DNMT3A |>
   left_join(metadata) |>
   mutate(detection_age = age + expansion) |>
   ggplot(aes(x = detection_age, y = mle, ymax = cihigh, ymin = cilow)) +
-  geom_pointrange() +
-  geom_point(aes(x = age), color = "grey80") +
+  geom_pointrange(color = "grey80") +
+  geom_point(aes(x = age), ) +
   theme_cowplot() +
   geom_segment(aes(x = age ,xend = detection_age, y = mle), color = "grey80", linetype = "dashed")  +
-  labs( y = "probability of one of 20 DNMT3A driver mutations", x = "Age in years")
-
-# # Read the UKbiobank data:
-# # make figures for CH, DNMT3A and DNMT3A R882H mutation
-# DNMT3A_age_frequencies = fread("raw_data/UKBiobank/UKB_age_frequencies_DNMT3A.tsv")
-# CH_age_frequencies = fread("raw_data/UKBiobank/UKB_age_frequencies.tsv")
-#
-# CH_frequencies = CH_age_frequencies |>
-#   mutate(CH = rowSums(select(CH_age_frequencies, c(-Age, -Individuals)))) |>
-#   mutate(fraction = CH / Individuals) |>
-#   filter(Individuals > 100)
-#
-# # compare the CH frequencies over time with the predictions:
-# ch_genes = intersect(CH_bDM$gene_name, colnames(CH_age_frequencies))
-#
-# CH_driver_counts = CH_bDM[driver == TRUE , .N, by = c("gene_name", "mut_type", "driver")]
-# CH_driver_count_list = split(CH_driver_counts, CH_driver_counts$gene_name)
-# CH_driver_muts = lapply(CH_driver_count_list, \(x) calc_exp_muts(expected_rates, x, metadata, ratios, ncells)) |>
-#   rbindlist(idcol = "gene_name")
-#
-# CH_rates = CH_frequencies |>
-#   select(-fraction) |>
-#   pivot_longer(-c(Age, Individuals), names_to = "gene_name", values_to = "n_CH") |>
-#   mutate(mle = n_CH / Individuals, age = Age) |>
-#   filter(gene_name %in% ch_genes)
-#
-# # plot for all genes the induction:
-# plot_cr_driver_muts = CH_driver_muts |>
-#   filter(gene_name %in% ch_genes) |>
-#   ggplot(aes(x = age, y = mle)) +
-#   geom_point() +
-#   geom_point(data = CH_rates) +
-#   facet_wrap(gene_name ~ . , scales = "free_y") +
-#   theme_cowplot() + panel_border() +
-#   labs(y = "incidence driver mutations/CH", y = "Age (years)", title = "linear y-axis")
-# plot_cr_driver_muts
-#
-# plot_cr_driver_muts +
-#   scale_y_log10() + labs(title = "log10 y-axis")
-#
-# plot_cr_driver_muts = CH_driver_muts |>
-#   filter(gene_name == "DNMT3A") |>
-#   mutate(cilow = mle / 4, cihigh = mle * 13) |>  # simulate having 25.00 or 1.3M cells
-#   ggplot(aes(x = age, y = mle)) +
-#   geom_smooth(method = "lm", se = FALSE) +
-#     geom_pointrange(aes(ymin = cilow, ymax = cihigh)) +
-#   geom_point(data = CH_rates |> filter(gene_name == "DNMT3A")) +
-#   facet_wrap(gene_name ~ . , scales = "free_y") +
-#   theme_cowplot() + panel_border() +
-#   labs(y = "incidence driver mutations/CH", y = "Age (years)",
-#        subtitle = "Confidence interval: Low = 25,000 HSCs, high 1.3 million HSCs")
-# plot_cr_driver_muts
-#
-#
-# # extend the expansion timing according to the estimates proposed by Watson et al.,
-# exp_R882C = log(2000) / log(1.187)
-# exp_R882C
-# exp_R882H = log(2000) / log(1.148)
-# exp_R882H
-#
-# plot_cr_driver_muts = CH_driver_muts |>
-#   filter(gene_name == "DNMT3A") |>
-#   mutate(cilow = mle / 4, cihigh = mle * 13,
-#          age = age + 46) |>  # simulate having 25.00 or 1.3M cells
-#   ggplot(aes(x = age, y = mle)) +
-#   geom_pointrange(aes(ymin = cilow, ymax = cihigh)) +
-#   geom_smooth(method = "lm", se = FALSE) +
-#   geom_point(data = CH_rates |> filter(gene_name == "DNMT3A")) +
-#   facet_wrap(gene_name ~ . , scales = "free_y") +
-#   theme_cowplot() + panel_border() +
-#   labs(y = "incidence driver mutations/CH", y = "Age (years)",
-#        title = "Allowing for 46 years of expansion time",
-#        subtitle = "Confidence interval: Low = 25,000 HSCs, high 1.3 million HSCs")
-# plot_cr_driver_muts
-#
-#
-# plot_cr_driver_muts = CH_driver_muts |>
-#   filter(gene_name == "DNMT3A") |>
-#   mutate(cilow = get_prob_mutated(mle / 4 / ncells, ncells),
-#          mle = get_prob_mutated(mle / ncells, ncells),
-#          cihigh = get_prob_mutated(mle * 13 / ncells, ncells),
-#                  age = age ) |>  # simulate having 25.00 or 1.3M cells
-#   ggplot(aes(x = age, y = mle)) +
-#   geom_pointrange(aes(ymin = cilow, ymax = cihigh)) +
-#   geom_point(data = CH_rates |> filter(gene_name == "DNMT3A")) +
-#   facet_wrap(gene_name ~ . , scales = "free_y") +
-#   theme_cowplot() + panel_border() +
-#   labs(y = "incidence driver mutations/CH", y = "Age (years)",
-#        title = "Probability of mut/CH incidence",
-#        subtitle = "Confidence interval: Low = 25,000 HSCs, high 1.3 million HSCs")
-# plot_cr_driver_muts
-#
-#
-# plot_cr_driver_muts = CH_driver_muts |>
-#   filter(gene_name == "DNMT3A") |>
-#   mutate(cilow = mle / 4, cihigh = mle * 1,
-#          age = age + 46) |>  # simulate having 25.00 or 1.3M cells
-#   ggplot(aes(x = age, y = mle)) +
-#   geom_pointrange(aes(ymin = cilow, ymax = cihigh)) +
-#   geom_point(data = CH_rates |> filter(gene_name == "DNMT3A")) +
-#   facet_wrap(gene_name ~ . , scales = "free_y") +
-#   theme_cowplot() + panel_border() +
-#   labs(y = "incidence driver mutations/CH", y = "Age (years)",
-#        title = "Probability of mut: Allowing for 46 years of expansion time",
-#        subtitle = "Confidence interval: Low = 25,000 HSCs, high 1.3 million HSCs")
-# plot_cr_driver_muts
-#
-# # plot mutation rates in all genes
-# site_freqs_ch_drivers = CH_bDM[driver == TRUE, .N, by = c("mut_type", "gene_name")]
-# mrate_CH_drivers = get_gene_rate(exp_rates = expected_rates, metadata = metadata,
-#                                  site_freqs = site_freqs_ch_drivers,  ratios = ratios,  ncells = ncells)
-#
-#
-#
-# # Get the last point of each group
-# df_last <- mrate_CH_drivers |>
-#   group_by(gene_name) |>
-#   filter(mle == max(mle)) |>
-#   arrange(mle) |>
-#   tail(15)
-#
-# CH_driver_rates = ggplot(mrate_CH_drivers |> filter(gene_name %in% df_last$gene_name),
-#                          aes(x = age, y = mle, color = gene_name)) +
-#   geom_point() +
-#   geom_smooth(method = "lm", se = FALSE) +
-#   ggrepel::geom_text_repel(data = df_last, aes(label = gene_name), nudge_x = 7,
-#                            size = 4, na.rm = TRUE, max.overlaps = Inf) +
-#   expand_limits(x = max(df_last$age) + 10) + # Add space for labels
-#   ggsci::scale_color_igv() +
-#   theme_cowplot() +
-#   theme(legend.position = "none") +
-#   labs(y = "number of CH driver\nmutations", x = "Age (years)")
-# ggsave("plots/blood/comparison_muts_CH_rates.png", CH_driver_rates,  width = 6, height = 5, bg = "white")
-#
-# #  TODO Update the blood script with the new estimates for high and low numbers of mutation rate
-# # min number of stem cells in the blood
-# min_ncells = 2.5e4
-# max_ncells = 1.3e6
-#
-# # DNMT3A mutations all
-# site_freqs_ch_drivers = CH_bDM[driver == TRUE & gene_name == "DNMT3A", .N, by = c("mut_type", "gene_name")]
-# estimates_area = get_mut_est_conf(site_freqs = site_freqs_ch_drivers, exp_rates = expected_rates,
-#                                   metadata = metadata, ratios = ratios, ncells = ncells,
-#                                   min_ncells = min_ncells, max_ncells = max_ncells)
-#
-# plot_muts_area = function(estimates) {
-#   estimates |>
-#     filter(gene_name == "DNMT3A") |>
-#     ggplot(aes(x = age, y = ncells)) +
-#     geom_ribbon(aes(ymin = model_min, ymax = model_max ), alpha = 0.1) +
-#     geom_line(aes(y = model_ncells), linewidth = 1) +
-#     geom_line(aes(y = model_min), color = "grey30", linewidth = 1, linetype = "dashed") +
-#     geom_line(aes(y = model_max), color = "grey30", linewidth = 1, linetype = "dashed") +
-#     theme_cowplot()  +
-#     labs(y = "mutated HSCs with DNMT3A driver", x = "Age (years)")
-# }
-#
-#
-# label_min = paste0("25,000 HSCs\nEst. muts 80y: ", round(estimates_area[["model_min"]][8], 2))
-# label_mid = paste0("100,000 HSCs\nEst. muts 80y: ", round(estimates_area[["model_ncells"]][8], 2))
-# label_max = paste0("1.3M HSCs\nEst. muts: 80y: ", round(estimates_area[["model_max"]][8], 2))
-#
-# # plot mutation rate estimates for different initial estimates - plot in the confidence interval
-# plot_confi = plot_muts_area(estimates_area)  +
-#   labs(y = "Number of cells with DNMT3A\ driver mutation") +
-#   annotate("text", x = 80, y = estimates_area[["model_ncells"]][8], label = label_mid, hjust = 0, vjust = 0, size = 3.5) +
-#   annotate("text", x = 80, y = estimates_area[["model_min"]][8], label = label_min, hjust = 0, vjust = 0.6, color = "grey30", size = 3.5) +
-#   annotate("text", x = 80, y = estimates_area[["model_max"]][8], label = label_max, hjust = 0, color = "grey30", size = 3.5) +
-#   theme(plot.margin = margin(5,32,5,5, unit = "mm")) +
-#   coord_cartesian(clip = "off")
-# plot_confi
-#
-# site_freqs_ch_drivers = CH_bDM[driver == TRUE & gene_name == "DNMT3A" & aachange == "R882H",.N,by = c("mut_type", "gene_name")]
-# estimates_area = get_mut_est_conf(site_freqs = site_freqs_ch_drivers, exp_rates = expected_rates,
-#                                   metadata = metadata, ratios = ratios, ncells = ncells,
-#                                   min_ncells = min_ncells,max_ncells = max_ncells)
-#
-# # check the ages needed for
-# delay100k <- log(2000) / log(1.18)
-# delay25k <- log(500) / log(1.18) # delay is much closer
-
+  labs( y = "probability of 20 DNMT3A drivers", x = "Age in years", title = "DNMT3A R882H & R882C probability")

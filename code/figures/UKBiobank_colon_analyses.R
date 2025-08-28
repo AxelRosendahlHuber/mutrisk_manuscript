@@ -7,10 +7,11 @@ library(mutrisk)
 source("code/functions/analysis_variables.R")
 
 # internal function
-
 ## UKBiobank analyses
 # load the bowel cancer data:
 crc_freq = fread("raw_data/UKBiobank/colorectal_cancer_frequency_UKB.csv")
+
+colors = tissue_colors[["colon"]]
 
 # calculate the incidence rates
 ukbiobank_crc = data.frame(age = 0:max(crc_freq$current_age)) |>
@@ -121,6 +122,31 @@ apc_single_driver = expected_rates |>
 apc_double_driver = apc_single_driver |>
   mutate(across(c(mle, cilow, cihigh), ~ ((.^2) / 2)))
 
+
+APC_single_mut_plot = apc_single_driver |>
+  filter(category == "normal") |>
+  mutate(across(c(mle, cilow, cihigh), ~ . * ncells)) |>
+  ggplot(aes(x = age, y = mle, color = category)) +
+  geom_pointrange(aes(ymin = cilow, ymax = cihigh)) +
+  scale_y_continuous(labels = scales::label_comma()) +
+  scale_color_manual(values = colors) +
+  theme_cowplot() +
+  labs(y = 'number of cells with APC double mutations', x = "Age (years)") +
+  theme(legend.position = "none")
+
+APC_double_mut_plot = apc_double_driver |>
+  filter(category == "normal") |>
+  mutate(across(c(mle, cilow, cihigh), ~ . * ncells)) |>
+  ggplot(aes(x = age, y = mle, color = category)) +
+  geom_pointrange(aes(ymin = cilow, ymax = cihigh)) +
+  theme_cowplot() +
+  scale_color_manual(values = colors) +
+  labs(y = 'number of cells with APC double mutations', x = "Age (years)") +
+  theme(legend.position = "none")
+
+APC_single_mut_plot + APC_double_mut_plot
+
+
 # make a dataframe with the relative mutation rates for all the different changes:
 vogelgram_mut_risks_sc = tibble(
   category = apc_double_driver$category,
@@ -200,7 +226,7 @@ mutated_fractions = fread("processed_data/GENIE_17/CRC_mutation_fractions.txt") 
 # make plots for normal individuals:
 # make in a for loop multiple plots - with for each of them the %age of CRC indicated
 i = 1 # for testing purposes only
-plot_fraction_list = plot_list = list(spacer = plot_spacer())
+plot_multiple_fraction_list = plot_fraction_list = plot_list = list(spacer = plot_spacer())
 for (i in 1:nrow(mutated_fractions)) {
   print(i)
 
@@ -244,10 +270,12 @@ for (i in 1:nrow(mutated_fractions)) {
                            "%\nRatio mutated cells:CRC = ", format(ratio_mut_cells_crc, digits = 3, big.mark = ",")))
 
   # plot the individual fractions summing up to 1
-  plot_fraction_list[[i_name]] = df_vogelgram_incidence |>
+  df_vogelgram_fraction = df_vogelgram_incidence |>
     mutate(incidence = ifelse(name != "CRC_cumulative_risk",
                               get_prob_mutated_N(incidence/ncells, ncells = ncells),
-                              incidence)) |>
+                              incidence))
+
+  plot_fraction_list[[i_name]] =  df_vogelgram_fraction |>
     ggplot(aes(x = age)) +
     geom_point(aes(x = age, y = incidence, color = name)) +
     scale_y_log10(guide = "axis_logticks",
@@ -262,6 +290,40 @@ for (i in 1:nrow(mutated_fractions)) {
          subtitle = paste0("Percentage of CRC = ",format(mutated_fractions[i, 1]*100, digits = 3),
                            "%\nRatio mutated cells:CRC = ", format(ratio_mut_cells_crc, digits = 3, big.mark = ",")))
 
+
+  # plot which fraction of cells has multiple mutations:
+  df_vogelgram_multiple_fraction = df_vogelgram_incidence |>
+    filter(name != "CRC_cumulative_risk")
+
+  fraction_list = list()
+  for (n in c(1, 2,5, 10, 100)) {
+    fraction_list[[as.character(n)]] = df_vogelgram_multiple_fraction |>
+      mutate(fraction = get_prob_mutated_N(incidence/ncells, ncells, n))
+  }
+  df_vogelgram_multiple_fraction = rbindlist(fraction_list, idcol = "N")
+
+  df_all_multiple_fraction = df_vogelgram_incidence |>
+    filter(name == "CRC_cumulative_risk") |>
+    mutate(N = "CRC cumulative risk",
+           fraction = incidence) |>
+    bind_rows(df_vogelgram_multiple_fraction) |>
+    mutate(N = as.character(N),
+      N = factor(N, levels = c("1", "2", "5", "10", "100", "CRC cumulative risk")))
+
+  plot_multiple_fraction_list[[i_name]] =  df_all_multiple_fraction |>
+    ggplot(aes(x = age)) +
+    geom_point(aes(x = age, y = fraction, color = N)) +
+    scale_color_manual(values = c(c("darkgoldenrod1",  "darkorange3", "firebrick1", "red", "darkred"), "black")) +
+    theme_cowplot()  +
+    theme(legend.position = "inside", legend.position.inside = c(0.5, 0.2), legend.background = element_rect(fill = alpha("white", 0.7)),
+          legend.margin = margin(1,1,1,1,"mm")) +
+    coord_cartesian(clip = 'off') +
+    labs(y = "Incidence mutation/CRCR cancer", x = "Age (years)", color = NULL, title = i_name,
+         subtitle = paste0("Percentage of CRC = ",format(mutated_fractions[i, 1]*100, digits = 3),
+                           "%\nRatio mutated cells:CRC = ", format(ratio_mut_cells_crc, digits = 3, big.mark = ",")))
+
+
+
 }
 
 plot_spacer()
@@ -271,6 +333,11 @@ wrap_plots(plot_list)
 
 wrap_plots(plot_fraction_list) & scale_y_continuous() & theme(legend.position.inside = c(0.01, 0.5))
 wrap_plots(plot_fraction_list)
+
+
+plot_multiple_fraction_list[[1]] = guide_area()
+plot_multiple_fraction_list[2:6] = plot_multiple_fraction_list[names(plot_list[-1])]
+wrap_plots(plot_multiple_fraction_list) + plot_layout(guides = "collect")
 
 ###### Make the same plot comparing normal vs affected individuals:
 
@@ -345,6 +412,8 @@ wrap_plots(plot_list)
 wrap_plots(plot_fraction_list) & scale_y_continuous() & theme(legend.position.inside = c(0.01, 0.5))
 wrap_plots(plot_fraction_list)
 
+
+wrap_plots(plot_multiple_fraction_list)
 
 
 #########################################################
@@ -482,56 +551,45 @@ vogel_plot_kras + vogel_plot_apc + vogel_plot_apc_kras
 
 ###########################################
 # Study the incidence rates of more than 1 mut
+# using the probabilities - for 1, 10 and 100 muts
 ##########################################
-df_vogelgram_incidence = df_vogelgram_incidence |>
-  mutate(fraction_1mut = get_prob_mutated_N(incidence/ncells, ncells, 1))
-df_vogelgram_incidence |>
-  ggplot(aes(x = age, color = name)) +
-  geom_point(aes(y = fraction_1mut), alpha = 0.3) +
-  cowplot::theme_cowplot() +
-  scale_color_manual(values = c("orange", "red", "darkred", "black"))
 
-df_vogelgram_multiple_muts = df_vogelgram_incidence |>
-  mutate(fraction_2mut = get_prob_mutated_N(incidence/ncells, ncells, 2),
-         fraction_3mut = get_prob_mutated_N(incidence/ncells, ncells, 3),
-         fraction_5mut = get_prob_mutated_N(incidence/ncells, ncells, 5),
-         fraction_10mut = get_prob_mutated_N(incidence/ncells, ncells, 10))
+# todo: Make different plots for the more mutagenic, and less mutagenic sites
 
-# incidence rates of more than 1 mut
-vogelgram_1_mut = df_vogelgram_multiple_muts |>
-  filter(name != "CRC_cumulative_risk")  |>
-  ggplot(aes(x = age, color = name)) +
-  geom_point(aes(y = fraction_1mut)) +
-  cowplot::theme_cowplot() +
-  labs(y = "fraction of mutated individuals", title = "fraction individuals with cell with specific abberation")
-vogelgram_1_mut
+# leess mutagenic sites:
+vogelgram_mut_prob_list = list()
+for (i in c(1, 3, 10, 30, 100, 300, 1000, 3000, 10000)) {
+  name = as.character(i)
+  vogelgram_mut_prob_list[[i]] = vogelgram_mut_risks_sc |>
+    mutate(across(-c(category, donor, age), ~ get_prob_mutated_N(., ncells, i)))
+}
+vogelgram_mut_probs = rbindlist(vogelgram_mut_prob_list, idcol = "Nmut")
+vogelgram_mut_probs_long = vogelgram_mut_probs |>
+  pivot_longer(contains("_"), names_to = "mutation", values_to = "mut_probability") |>
+  mutate(nmut = factor(Nmut, sort(unique(Nmut))),
+         mutation = factor(mutation, levels = c("APC_single_snv", "KRAS_single_snv", "APC_double", "KRAS_APC_single",
+                                                "KRAS_APC_double"))) |>
+  filter(category == "normal")
 
-vogelgram_2_mut = vogelgram_1_mut +
-    geom_point(aes(y = fraction_2mut)) +
-    geom_segment(aes(x = age, y = fraction_1mut, yend = fraction_2mut)) +
-    labs(title = "Difference fraction mutated with 1, or with 2 mutations")
-vogelgram_2_mut
 
-vogelgram_3_mut = vogelgram_1_mut +
-  geom_point(aes(y = fraction_3mut)) +
-  geom_segment(aes(x = age, y = fraction_1mut, yend = fraction_3mut)) +
-  labs(title = "Difference fraction mutated with 1, or with 3 mutations")
-vogelgram_3_mut
+vogelgram_mut_probs_long |>
+  filter(mutation %in% c("APC_double", "KRAS_APC_double", "KRAS_APC_single", "KRAS_single_snv"),
+         Nmut < 100) |>  # filter for the less mutagenic sites
+  ggplot(aes(x = age, y = mut_probability, color = nmut)) +
+  geom_point() +
+  scale_color_manual(values = c('#d73027','#f46d43','#fdae61','#fee08b','#ffffbf','#d9ef8b','#a6d96a','#66bd63','#1a9850')) +
+  facet_wrap(mutation ~ . ) +
+  theme_cowplot()
 
-vogelgram_5_mut = vogelgram_1_mut +
-  geom_point(aes(y = fraction_5mut)) +
-  geom_segment(aes(x = age, y = fraction_1mut, yend = fraction_5mut)) +
-  labs(title = "Difference fraction mutated with 1, or with 5 mutations")
-vogelgram_5_mut
 
-vogelgram_10_mut = vogelgram_1_mut +
-  geom_point(aes(y = fraction_10mut)) +
-  geom_segment(aes(x = age, y = fraction_1mut, yend = fraction_10mut)) +
-  labs(title = "Difference fraction mutated with 1, or with 10 mutations")
-vogelgram_10_mut
-
-plots = vogelgram_1_mut + vogelgram_2_mut + vogelgram_3_mut + vogelgram_5_mut
-plots_log = vogelgram_1_mut + vogelgram_2_mut + vogelgram_3_mut + vogelgram_5_mut & scale_y_log10()
-
+vogelgram_mut_probs_long |>
+  filter(mutation %in% c("APC_single_snv"),
+         Nmut > 100) |>  # filter for the less mutagenic sites
+  ggplot(aes(x = age, y = mut_probability, color = nmut)) +
+  geom_point() +
+  facet_wrap(mutation ~ . ) +
+  scale_color_manual(values = c('#d73027','#f46d43','#fdae61','#fee08b','#ffffbf','#d9ef8b','#a6d96a','#66bd63','#1a9850')) +
+  facet_wrap(mutation ~ . ) +
+  theme_cowplot()
 
 

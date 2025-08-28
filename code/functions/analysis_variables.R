@@ -16,7 +16,6 @@ for (file in r_funcs) {
 }
 
 
-
 # default number of cells - 70kg male individual
 tissue_ncells = data.frame(tissue = c("blood", "colon", "lung", "skin"),
                            ncells = c(1e5, 6.60e7, 4.33e+9, 2.53e+9))
