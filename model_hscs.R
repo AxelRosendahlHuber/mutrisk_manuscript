@@ -3,10 +3,7 @@ library(tidyverse)
 library(data.table)
 library(parallel)
 source("code/functions/analysis_variables.R")
-
 library(Rcpp)
-# use a fast Rcpp function for maximum modeling speed
-sourceCpp("model_clones.cpp")
 
 # load Watson DNMT3A tables (requires interactively selecting the table
 DNMT3A_watson_file = "processed_data/watson_DNMT3A_supp.tsv"
@@ -30,7 +27,6 @@ if (!file.exists(DNMT3A_watson_file)) {
 
   fwrite(pages_DNMT3A, DNMT3A_watson_file)
 } else {pages_DNMT3A = fread(DNMT3A_watson_file)}
-
 
 # get the mutation rates for all respective DNMT3A mutations
 # This function is quite often used: Check if this is possible to make into function:
@@ -87,7 +83,7 @@ pages_DNMT3A |>
   ggrepel::geom_text_repel(aes(label = DNMT3A))
 
 mrate_watson = pages_DNMT3A |>
-  left_join(output)  |>
+  left_join(output, join_by(aachange))  |>
   as.data.frame() |> `rownames<-`(pages_DNMT3A$aachange)
 
 ggplot(mrate_watson, aes(x = slope, y = `Site-specific`*1e-9)) +
@@ -100,15 +96,16 @@ ggplot(mrate_watson, aes(x = slope, y = `Site-specific`*1e-9)) +
 output_list = list()
 for (select_aachange in mrate_watson$aachange) {
   print(select_aachange)
-  output_list[[select_aachange]] = full_modeling(nreps = 1e6, B = 1e5, s =  mrate_watson[select_aachange, "s"]*0.01,
+  output_list[[select_aachange]] = full_modeling(nreps = 1e3, B = 1e5, s =  mrate_watson[select_aachange, "s"]*0.01,
                 mrate = mrate_watson[select_aachange, "slope"],
                 intercept = mrate_watson[select_aachange, "intercept"], max_time = 90)
 }
 
 clonal_growth = rbindlist(output_list, idcol = "aachange")
+clonal_growth |>
+  arrange(fraction)
 
 # start modeling 1e6 individuals to get a smoother line
-
 clonal_growth |>
   ggplot(aes(x = age, y = fraction, group = aachange)) +
   geom_line() +
@@ -116,60 +113,91 @@ clonal_growth |>
   cowplot::theme_cowplot() +
   labs(title = "CH across individuals - measured by growth rate")
 
-clonal_growth |>
+# total DNMT3A mutations
+clonal_growth_total = clonal_growth |>
   group_by(age) |>
   summarize(fraction = sum(fraction)) |>
-  ggplot(aes(x = age, y = fraction)) +
+  mutate(type = "CH_modeling")
+
+ggplot(clonal_growth_total, aes(x = age, y = fraction)) +
   geom_line() +
   cowplot::theme_cowplot() +
   labs(title = "fraction of individuals with DNMT3A mutation")
 
-# compare this against the occurrence of DNMT3A mutations during aging
-model = full_modeling(nreps = 1e4,
-                      B =  1e5, s = 1.15, mrate = mrate_watson["R882H", "slope"], intercept = mrate_watson["R882H", "intercept"],
-              max_time = 90)
+# check the overlap of BoostDM sites with the site sfor which we have and 's'
+ch_driver_aa = CH_bDM |> filter(gene_name == "DNMT3A" & driver == TRUE) |> pull(aachange) |> unique()
+s_DNMT3A = clonal_growth |> pull(aachange) |> unique()
 
-# model for each mutation the specific mutation load
-
-
-
+euler_data = eulerr::euler(list(`BoostDM drivers` = ch_driver_aa, `Watson et al., \n mutations\n N = 102` = s_DNMT3A))
+plot(euler_data, quantities = TRUE)
 
 # compare simulated data against the ukbiobank data
-#
-UKB_df = UKB_DNMT3A |>
-  select(age, all_of(mutation)) |>
-  `colnames<-`(c("age", "fraction")) |>
-  mutate(type = "UK Biobank CH")
-
-total_df = rbindlist(list(simulation_df, shifting_df, UKB_df)) |>
-  mutate(type = factor(type, levels = c("simulation CH", "shifting age", "UK Biobank CH")),
-         mutation)
-
-ggplot(total_df, aes(x = age, y = fraction, linetype = type)) +
-  geom_line() +
-  scale_y_continuous(labels = scales::label_comma(), limits = c(0, NA)) +
-  cowplot::theme_cowplot() +
-  labs(x = "Age (years)", y = "Fraction (predicted) with CH", linetype = NULL,
-       title = paste0("modeling of ", mutation, " CH"))
-
-
-# CH frequency
-UKB_DNMT3A = fread("raw_data/UKBiobank/UKB_age_frequencies_DNMT3A.tsv") |>
-  filter(Individuals > 2000) |> # filter for the years when at least 5000 patients are in the cohort
-  select(Age, Individuals, "R/H", "R/C", "R/S", "R/P") |>
+UKB_DNMT3A = fread("raw_data/UKBiobank/UKB_age_frequencies_DNMT3A.tsv")
+UKB_DNMT3A = UKB_DNMT3A |>
+  filter(Individuals > 5000) |> # filter for the years when at least 5000 patients are in the cohort
   mutate(R882H = `R/H` / Individuals,
          R882C = `R/C` / Individuals,
          R882S = `R/S` / Individuals,
          R882P = `R/P` / Individuals) |>
   dplyr::rename(age = Age)
 
-# make dataframe with the most well known DNMT3A variants
-s_df = data.frame(mutation = c("R882C", "R882H"), s = c(0.187, 0.148))
+# for now compare the clonal growth of the main four mutations
+UKB_DNMT3A_data = UKB_DNMT3A |>
+  select(-contains("/"), -Individuals, -DNMT3A) |>
+  pivot_longer(contains("R882"), names_to = "aachange", values_to = "fraction") |>
+  mutate(type = "UKB_DNMT3A")
 
-plot_list = lapply(s_df$mutation, \(x) full_modeling(1000,
-                                                     max_time = 100,
-                                                     B = 1e5,
-                                                     s = s_df |> filter(mutation == x) |> pull(s),
-                                                     mutation = x))
+growth_DNMT3A_data = rbind(clonal_growth, UKB_DNMT3A_data) |>
+  mutate(linegroup = paste0(aachange, type)) |>
+  filter(aachange %in% c("R882H", "R882C", "R882S", "R882P"))
 
-wrap_plots(plot_list) + plot_layout(guides = "collect")
+ggplot(growth_DNMT3A_data, aes(x = age, y = fraction, group = linegroup, color = type)) +
+          geom_line() +
+  scale_color_manual(values = c(blood_colors[[1]], "black")) +
+  facet_wrap(aachange ~ ., scales = "free_y") +
+  theme_bw()
+
+
+ggplot(growth_DNMT3A_data |> filter(aachange %in% c("R882C", "R882H")), aes(x = age, y = fraction, group = linegroup, color = type)) +
+  geom_line() +
+  scale_color_manual(values = c(blood_colors[[1]], "black")) +
+  facet_wrap(aachange ~ ., scales = "free_y") +
+  theme_bw()
+
+# growth all
+growth_DNMT3A_data |>
+  group_by(type, age) |>
+  summarize(fraction = sum(fraction)) |>
+  ggplot(aes(x = age, y = fraction, color = type)) +
+  geom_line() +
+  scale_color_manual(values = c(blood_colors[[1]], "black")) +
+  theme_bw() + labs(title = "R882H/C/P/S mutations compared to UKbiobank incidence")
+
+
+# also compare all mutations against all sites in DNMT3A
+
+# specifically select against sites in DNMT3A:
+UKB = fread("~/Downloads/UkBiobank_DNMT3A_mut_age.csv")
+UKB = UKB |> dplyr::count(aa_change, Age) |>
+  dplyr::rename(age = Age) |>
+  left_join(UKB_DNMT3A |> select(age, Individuals)) |>
+  filter(Individuals > 5000)
+
+UKB_fraction = UKB |>
+  mutate(fraction = n / Individuals)
+
+UKB_fraction_all = UKB_fraction |>
+  mutate(type = "UKB all DNMT3A") |>
+  group_by(age, type) |>
+  summarize(fraction = sum(fraction)) |>
+  select(age, fraction, type)
+
+
+rbind(clonal_growth_total, UKB_fraction_all) |>
+  ggplot(aes(x = age, y = fraction, color = type)) +
+  geom_line() +
+  scale_color_manual(values = c(blood_colors[[1]], "black")) +
+  theme_bw() + labs(title = "CH modeling compared to UKbiobank incidence")
+
+# ideas for the bladder project: plot the mutations across the samples -
+# due to what reason are they induces?

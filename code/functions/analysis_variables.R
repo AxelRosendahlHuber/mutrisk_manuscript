@@ -47,7 +47,13 @@ color_df = lapply(tissue_colors, \(x)
                   data.table::data.table(category = names(x), color = x)) |>
   data.table::rbindlist(idcol = "tissue") |>
   dplyr::mutate(tissue_category = paste0(tissue, "_", category))
+
 tissue_category_colors = setNames(color_df$color, color_df$tissue_category)
+
+tissue_basic_colors = c(colon_colors[1], blood_colors[1], lung_colors[1])
+names(tissue_basic_colors) = c("colon", "blood", "lung")
+
+
 
 # get mutrisk specific objects:
 TRIPLETS_96 = getFromNamespace("TRIPLETS_96", "mutrisk")

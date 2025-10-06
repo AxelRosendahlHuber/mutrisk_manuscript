@@ -262,14 +262,6 @@ mrate_DNMT3A_drivers_plot = plot_mrate(mrate_DNMT3A_drivers |> filter(category =
 ggsave("plots/blood/ncells_DNMT3A_drivers_normal.png", width = 5.5, height = 4.2, bg = "white")
 
 # taking the actual difference between individual clones
-mrate_DNMT3A_drivers = get_gene_rate_clone(exp_rates = expected_rates, metadata = metadata,
-                                           site_freqs = site_freqs_DNMT3A_drivers, ratios = ratios, ncells = ncells)
-plot_mrate(mrate_DNMT3A_drivers |> filter(category == "normal"),
-           title = "number of cells with DNMT3A driver mutations - normal tissue",
-           colors = blood_colors)
-ggsave("plots/blood/ncells_DNMT3A_drivers_normal_points.png", width = 8, height = 5, bg = "white")
-
-# taking the actual difference between individual clones
 mrate_DNMT3A_drivers1 = get_gene_rate_fraction(exp_rates = expected_rates,
                                                metadata = metadata,
                                                site_freqs = site_freqs_DNMT3A_drivers,
@@ -574,7 +566,6 @@ design =
   "ABC
  DDD
  EFG"
-
 empty_plot = ggplot() + theme_void()
 
 # make a list of the plots and add them together:
@@ -583,11 +574,10 @@ f4p = list(figure_2a = figure_2a, DNMT3A_drivers_by_sig = DNMT3A_drivers_by_sig,
 f4p = lapply(f4p, \(x) x + theme(plot.margin = margin(5,5,5,5, "mm")))
 f4p$plot_confi = f4p$plot_confi + theme(plot.margin = margin(6,37,6,7, "mm"))
 
-figure_4 = wrap_plots(empty_plot , f4p$figure_2a , f4p$DNMT3A_drivers_by_sig,
+figure_4 = wrap_plots(empty_plot , f4p$figure_2a , f4pa$DNMT3A_drivers_by_sig,
                       f4p$expected_DNMT3A,
                       f4p$plot_confi, f4p$plot_muts_area_DNMT3A, f4p$CH_driver_rates, nrow = 3, design = design, heights = c(1,1,1.2)) +
   plot_annotation(tag_levels = "A") &
   theme(plot.tag = element_text(face = 'bold'))
 
 ggsave("plots/manuscript/main_figures/figure_4.svg", figure_4, width = 14, height = 12, bg = "white")
-

@@ -25,6 +25,9 @@ genie_blood = fread("processed_data/GENIE_17/GENIE_17_processed.txt.gz") |>
                             "Myelodysplastic Syndromes","Mature T and NK Neoplasms",
                             "Myelodysplastic/Myeloproliferative Neoplasms"))
 
+
+
+
 # load boostdm_ch-genie-cosmic intersections
 CH_bDM = fread("processed_data/boostdm/boostdm_genie_cosmic/CH_boostDM_cancer.txt.gz")
 
@@ -33,7 +36,6 @@ CH_bDM = fread("processed_data/boostdm/boostdm_genie_cosmic/CH_boostDM_cancer.tx
 ####
 # changes to make the script more accommodating for multiple different tissues:
 select_gene = "KRAS"
-
 
 # calculate expected rates
 calc_exp_muts = function(expected_rates, mut_positions, metadata, ratios, ncells) {
@@ -66,34 +68,30 @@ mutation_list = list(
   rbindlist(idcol = "name") |>
   mutate(name = factor(name, levels = c("DNMT3A_drivers", "DNMT3A_R882H", "DNMT3A_watson_drivers")))
 
-# correct the mutation loads for cihigh and cilow by the number of cells
-mutation_list_ci = mutation_list |>
-  mutate(cihigh = mle * 13,
-         cilow = mle / 4)
-figure_4a = ggplot(mutation_list_ci,
-                   aes(x = age, y = mle, fill = category)) +
-  geom_smooth(method = "lm", color = "black") +
-  geom_errorbar(aes(ymin = cilow, ymax = cihigh, color = category),
+ggplot(mutation_list |> filter(name %in% c("DNMT3A_R882H", "DNMT3A_drivers")),
+       aes(x = age, y = mle)) +
+  geom_errorbar(aes(ymin = mle / 4, ymax = mle * 13, color = category),
                 width = 0,
                 show.legend = FALSE) +
   facet_wrap(. ~ name, scales = "free_y") +
   geom_point(shape = 21, size = 2.4, color = "white", stroke = 0.3) +
-  ggpubr::stat_cor() +
+  geom_smooth(aes(color = category), method = "lm") +
   scale_fill_manual(values = blood_colors) +
   scale_color_manual(values = blood_colors) +
   theme_cowplot() +
   labs(y = "number of cells/individual",
        x = "Age (years)",fill = NULL) +
   theme(legend.position = "none")
-figure_4a
+
 
 # for the fitness effect: we need to consider that we can only model mutations with a specific fitness effect
 
-# perform two types of analyses:
+# perform two types of analyses:s
 # 1. with the DNMT3A mutation variant
 # 2. with all DNMT3A variants. Check how we need to calculate the fitness. Probably taking the sum of all of the curves would be the best solution
 
 # also needed would be the list of all the variants in the Watson analysis reported to be mutated
+
 
 
 # 1: R882H Plot:
@@ -111,21 +109,6 @@ figure_4b = ggplot(mutation_list_ci_prob,
   geom_point(shape = 21, size = 2.4, color = "white", stroke = 0.3) +
   scale_fill_manual(values = blood_colors) +
   scale_color_manual(values = blood_colors) +
-  theme_cowplot() +
-  labs(y = "number of cells/individual",
-       x = "Age (years)",fill = NULL) +
-  theme(legend.position = "none")
-figure_4b
-
-
-
-ggplot(mutation_list_ci_prob |> filter(name == "DNMT3A_watson_drivers"),
-                   aes(x = age, y = mle, fill = category)) +
-  geom_errorbar(aes(ymin = cilow, ymax = cihigh, color = category),
-                width = 0,
-                show.legend = FALSE) +
-  facet_wrap(. ~ name, scales = "free_y") +
-  geom_point(shape = 21, size = 2.4, color = "white", stroke = 0.3) +
   theme_cowplot() +
   labs(y = "number of cells/individual",
        x = "Age (years)",fill = NULL) +
@@ -152,37 +135,3 @@ expansion_df = data.frame(percent = c(18.7, 16.0, 15.8,15, 14.8, 14.1, 12.9, 12.
   mutate(s = 1 + percent / 100,
          age_expansion = log(2000) / log(s) )
 
-log(2000) / log(1.187)
-
-# calculate the matching
-expansion_group_DNMT3A = expected_drivers |>
-  arrange(donor) |>
-  left_join(expansion_df) |>
-  group_by(donor) |>
-  mutate(expansion_weight = mle / mean(mle),
-         expansion = age_expansion * expansion_weight) |>
-  summarize(across(c(mle, cilow, cihigh), sum),
-            expansion = mean(expansion)) |>
-  mutate(mle = get_prob_mutated_N(mle / 1e5, 1e5),
-         cilow = get_prob_mutated_N(mle / 1e5, 2.5e4),
-         cihigh = get_prob_mutated_N(mle / 1e5, 1.3e6))
-
-# check if there is no cross of the lines (indicating an impossible situtation)
-expansion_group_DNMT3A |>
-  left_join(metadata) |>
-  mutate(detection_age = age + expansion) |>
-  ggplot(aes(x = detection_age, y = mle, ymax = cihigh, ymin = cilow)) +
-  geom_pointrange() +
-  geom_smooth(method = 'lm', fullrange = TRUE) +
-  geom_pointrange(data = mutation_list_ci_prob |> filter(name == "DNMT3A_R882H"),
-                  aes(x = age + 55.07050), color = "red")
-
-expansion_group_DNMT3A |>
-  left_join(metadata) |>
-  mutate(detection_age = age + expansion) |>
-  ggplot(aes(x = detection_age, y = mle, ymax = cihigh, ymin = cilow)) +
-  geom_pointrange(color = "grey80") +
-  geom_point(aes(x = age), ) +
-  theme_cowplot() +
-  geom_segment(aes(x = age ,xend = detection_age, y = mle), color = "grey80", linetype = "dashed")  +
-  labs( y = "probability of 20 DNMT3A drivers", x = "Age in years", title = "DNMT3A R882H & R882C probability")
