@@ -115,7 +115,7 @@ make_gene_barplot = function(boostdm, ratios, gene_of_interest, tissue_select = 
   y_label = "number of cells with mutation"
   if (cell_probabilities == TRUE) {
     ncells_select = 1
-    y_label = "probability of mutation"
+    y_label = expression("probability of mutation ("*x10^-6*")")
   }
 
   if (max(expected_gene_muts$position, na.rm = TRUE) > 2000) {
@@ -127,40 +127,47 @@ make_gene_barplot = function(boostdm, ratios, gene_of_interest, tissue_select = 
     x_label = "AA position (5AA bins)"
   } else { x_label = "AA position"}
 
-
   expected_gene_muts_label = left_join(expected_gene_muts, mutrisk:::triplet_match_substmodel)
 
   # way to make the plot extend both upper and lower axes
-  ggplot(expected_gene_muts_label,
+  pl = ggplot(expected_gene_muts_label,
          aes(x = position, y = mle, fill = type)) +
     geom_col() +
     scale_fill_manual(values = mutrisk::COLORS6) +
     theme_cowplot() +
     scale_y_continuous(expand = expansion(mult = c(0, 0.1))) +
     labs(x = x_label, y = y_label, title = gene_of_interest, subtitle = label, fill = NULL)
+
+  if (cell_probabilities == TRUE) {
+    pl = pl + scale_y_continuous(expand = expansion(mult = c(0, 0.1)), labels = function(x) x * 1e6)
+  }
+  pl
 }
 
 
 make_gene_barplot(boostdm, ratios, gene_of_interest = "KRAS", tissue_select = "colon")
-make_gene_barplot(boostdm, ratios, gene_of_interest = "KMT2C")
 
 barplot_lung = make_gene_barplot(boostdm, ratios, gene_of_interest = "TP53", tissue_select = "lung", category_select = "non-smoker") + ggtitle(NULL)
 barplot_blood = make_gene_barplot(boostdm, ratios, gene_of_interest = "TP53", tissue_select = "blood") + ggtitle(NULL) + ylab(NULL)
 barplot_colon = make_gene_barplot(boostdm, ratios, gene_of_interest = "TP53", tissue_select = "colon") +   ylab(NULL)
 wrap_plots(barplot_colon, barplot_lung, barplot_blood, ncol = 1, guides = "collect")
 
-prob_barplot_lung = make_gene_barplot(boostdm, ratios, gene_of_interest = "TP53", tissue_select = "lung", cell_probabilities = TRUE)
+prob_barplot_lung = make_gene_barplot(boostdm, ratios, gene_of_interest = "TP53", tissue_select = "lung", category_select = "non-smoker", cell_probabilities = TRUE)
 prob_barplot_blood = make_gene_barplot(boostdm, ratios, gene_of_interest = "TP53", tissue_select = "blood", cell_probabilities = TRUE)
 prob_barplot_colon = make_gene_barplot(boostdm, ratios, gene_of_interest = "TP53", tissue_select = "colon", cell_probabilities = TRUE)
 wrap_plots(prob_barplot_colon, prob_barplot_lung, prob_barplot_blood, ncol = 1, guides = "collect")
 
+# horizontal plot
+prob_barplot_lung_h = prob_barplot_lung + ylab(NULL)
+prob_barplot_blood_h = prob_barplot_blood + ylab(NULL)
+wrap_plots(prob_barplot_colon, prob_barplot_lung_h,
+           prob_barplot_blood_h, ncol = 3, guides = "collect") & ggtitle(NULL)
 
 # APC
 make_gene_barplot(boostdm, ratios, gene_of_interest = "APC", tissue_select = "colon", cell_probabilities = FALSE) +
   facet_grid(driver ~ .) +
   scale_y_continuous(breaks = extended_breaks(4)) +
   theme(legend.position = "inside", legend.position.inside = c(0.05, 0.8))
-
 
 # make function, inputting the boostdm driver mutations, and the expected rates.
 # this will become the plot
@@ -272,7 +279,8 @@ for (i in 1:nrow(color_df)) {
 }
 
 boxplot_df = rbindlist(boxplot_list) |>
-  mutate(tissue_category = paste0(tissue, "_", category))
+  mutate(tissue = factor(tissue, levels = c("colon", "lung", "blood")),
+                         tissue_category = paste0(tissue, "_", category))
 
 ggplot(boxplot_df |> filter(category != "chemotherapy"), aes(x = category, y = mle, alpha = driver, fill = tissue_category)) +
   geom_boxplot(position = "dodge") +
@@ -282,8 +290,43 @@ ggplot(boxplot_df |> filter(category != "chemotherapy"), aes(x = category, y = m
   facet_wrap(. ~ tissue, scale = "free", space = "free_x") +
   theme_cowplot()
 
+# plot the mean mutation rates for the individual parts:
+df_total_muts = boxplot_df |> filter(category != "chemotherapy") |>
+  group_by(tissue, category, tissue_category, donor) |>
+  summarize(mle = sum(mle),
+            .groups = "drop_last")
+df_mean_muts = df_total_muts |>
+  summarize(sd = stats::sd(mle),
+            mle = mean(mle))
+df_mean_muts |>
+  ggplot(aes(x = category, y = mle,  fill = tissue_category)) +
+  geom_col() +
+  geom_errorbar(aes(ymin = mle - sd, ymax = mle + sd), width = 0) +
+  ggbeeswarm::geom_beeswarm(data = df_total_muts,  size = 1.3, cex = 2) +
+  scale_fill_manual(values = tissue_category_colors) +
+  scale_y_continuous(limits = c(0, NA), labels = label_comma(), expand = expansion(mult = c(0, 0.1))) +
+  scale_alpha_manual(values = c(1, 0.5)) +
+  facet_wrap(. ~ tissue, scale = "free", space = "free_x") +
+  theme_cowplot() +
+  theme(legend.position = "none") +
+  labs(y = "number of cells with TP53 mutation", x = NULL)
 
-# UKBiobank DNMT3A mutations:
+df_mean_muts |>
+  filter(category %in% c("normal", "non-smoker")) |>
+  ggplot(aes(x = category, y = mle,  fill = tissue_category)) +
+  geom_col() +
+  geom_errorbar(aes(ymin = mle - sd, ymax = mle + sd), width = 0) +
+  ggbeeswarm::geom_beeswarm(data = df_total_muts |> filter(category %in% c("normal", "non-smoker")),
+                                                           size = 1.3, cex = 2) +
+  scale_fill_manual(values = tissue_category_colors) +
+  scale_y_continuous(limits = c(0, NA), labels = label_comma(), expand = expansion(mult = c(0, 0.1))) +
+  scale_alpha_manual(values = c(1, 0.5)) +
+  facet_wrap(. ~ tissue, scale = "free", space = "free_x") +
+  theme_cowplot() +
+  theme(legend.position = "none") +
+  labs(y = "number of cells with TP53 mutation", x = NULL)
+
+f# UKBiobank DNMT3A mutations:
 UKB_DNMT3A_muts = fread("raw_data/UKBiobank/UkBiobank_DNMT3A_mut_age.csv")
 UKB_DNMT3A_counts = UKB_DNMT3A_muts[, .N, by = c("aa_change", "REF", "ALT")]  |>
   mutate(position = parse_number(aa_change),

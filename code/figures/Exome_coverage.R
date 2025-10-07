@@ -81,7 +81,7 @@ plot_prob_curve = function(probability_rates, analysis_name, groupby, nrow = 2) 
   ggplot(rates, aes(x = ncells, y = prob, group = groupID, color = color_id)) +
     geom_line() +
     geom_vline(data = tissue_ncells_plot, aes(xintercept = ncells), linetype = "dashed") +
-    facet_nested_wrap(. ~ factor(tissue, c("colon", "lung", "blood")) + category, nrow = nrow, nest_line = element_line(linetype = 1),
+    facet_nested_wrap(. ~ tissue + category, nrow = nrow, nest_line = element_line(linetype = 1),
                       axes = 'x') +
     cowplot::theme_cowplot() +
     cowplot::panel_border() +
@@ -113,7 +113,7 @@ plot_prob_curve_ci = function(probability_rates, analysis_name, groupby, ncell_d
                  linetype = "dashed", color = "black") +
     ggpp::geom_text_npc(data = tissue_ncells_plot, aes(npcx = 0.5, npcy = 0.975, label = label),
               color = "black", hjust = 0.5) +
-    facet_nested_wrap(. ~ factor(tissue, c("blood", "colon", "lung")),
+    facet_nested_wrap(. ~ tissue,
                       nrow = nrow, nest_line = element_line(linetype = 1), axes = 'all', remove_labels = "y") +
     cowplot::theme_cowplot() +
     scale_color_manual(values = tissue_category_colors) +
@@ -138,7 +138,6 @@ get_saturation_ci = function(intersects) {
     mutate(tissue_category = paste0(tissue, "_", category))
 }
 
-
 get_saturation = function(intersects) {
   meta_donor = metadata |> select(donor, age) |> distinct()
   intersects |>
@@ -146,7 +145,6 @@ get_saturation = function(intersects) {
     left_join(meta_donor) |>
     mutate(tissue_category = paste0(tissue, "_", category))
 }
-
 
 # function to code the age vs. saturation as a dotplot
 plot_saturation_age = function(intersects_ci, analysis_name) {
@@ -161,7 +159,6 @@ plot_saturation_age = function(intersects_ci, analysis_name) {
     labs(x = NULL, y = "Proportion of SNVs\nin at least one cell",
          title = analysis_name, subtitle = "probability vs. age")
 }
-
 
 # function to code the age vs. saturation as a pointrange plot with confidence interval of the mutation rate
 plot_saturation_age_ci = function(intersects_ci, analysis_name)  {
@@ -313,10 +310,17 @@ analyze_probability = function(gene_counts, analysis_name, groupby = "donor",
     prob_intersects_ci_tissue[[tissue]] = rbindlist(prob_intersects_ci, idcol = "category")
   }
 
-  intersects = rbindlist(prob_intersect_tissue, idcol = "tissue")
-  intersects_ci = rbindlist(prob_intersects_ci_tissue, idcol = "tissue")
-  probability_rates = rbindlist(prob_rates_tissue, idcol = "tissue")
-  plot_results = rbindlist(result_plot_list, idcol = "tissue")
+  # rbind, set tissue as factor - to save lines
+  bind_dfs = function(df_list) {
+    rbindlist(df_list, idcol = "tissue") |>
+      mutate(tissue = factor(tissue, levels = c("colon", "lung", "blood")))
+  }
+
+  intersects = bind_dfs(prob_intersect_tissue)
+  intersects_ci = bind_dfs(prob_intersects_ci_tissue)
+  probability_rates = bind_dfs(prob_rates_tissue)
+  plot_results = bind_dfs(result_plot_list)
+
 
   plot_list = list()
   plot_list[["plot_saturation"]] = plot_intersect_boxplot(intersects, analysis_name, groupby)
@@ -351,9 +355,7 @@ gene_counts = gene_counts |>
   setDT()
 gene_counts = sample_n(gene_counts, 1e4)
 
-# exome_analysis = analyze_probability(gene_counts = gene_counts, analysis_name = "exome analysis", groupby = "donor")
-# save_plots(exome_analysis$plot_list, path = "plots/coverage_saturation/", name = "exome")
-
+exome_analysis = analyze_probability(gene_counts = gene_counts, analysis_name = "exome analysis", groupby = "donor")
 exome_analysis_normal = analyze_probability(gene_counts = gene_counts, analysis_name = "exome analysis", groupby = "donor", filter_normal = TRUE)
 save_plots(exome_analysis_normal$plot_list, path = "plots/coverage_saturation/", name = "normal_exome", width = 7, height = 5)
 save_plots(exome_analysis_normal$plot_list, path = "plots/coverage_saturation/", name = "normal_exome_wideplot", width = 10, height = 5)
@@ -376,7 +378,6 @@ exome_analysis_normal$intersects |>
   left_join(select(metadata, donor, age) |> distinct() |> dplyr::rename(groupID = donor)) |>
   filter(age > 35) |>
   pull(prob) |> mean() * 100
-
 
 #######
 # load pan-cancer BoostDM driver predictions:
@@ -422,7 +423,6 @@ BRAF_values = BRAF_V600E_rates$result_plot_df[tissue == "colon"] |>
   group_by(tissue, category) |>
   summarize(across(c(value, ncells), mean)) |>
   mutate(ncells_mut = value * ncells)
-BRAF_values
 
 exome_list = exome_analysis$result_plot_df
 driver_list = list(KRAS_G12V_rates$result_plot_df,
@@ -434,6 +434,7 @@ driver_list = list(KRAS_G12V_rates$result_plot_df,
 driver_names = c("KRAS G12V", "KRAS G12D", "TP53 R248Q", "TP53 R175H", "APC R1450*", "BRAF V600E")
 names(driver_list) = driver_names
 drivers = rbindlist(driver_list, idcol = "driver_name")
+
 
 plot_driver_incidence = function(mutation_list, drivers, name, plot_rows = 2) {
 
@@ -471,8 +472,7 @@ plot_driver_incidence = function(mutation_list, drivers, name, plot_rows = 2) {
   pl[["barplot_decile"]] = ggplot(mut_deciles, aes(x = decile,  y = mean_mutrate, fill = category_tissue)) +
     geom_col() +
     geom_text(aes(label = percentage_label, y = mean_mutrate), vjust = -0.2, position = position_dodge(0.9)) +
-    ggh4x::facet_nested_wrap(. ~ factor(tissue, c("colon", "lung", "blood")) + category, nrow = plot_rows,
-                             nest_line = element_line(linetype = 1), scale = "free") +
+    ggh4x::facet_nested_wrap(. ~ tissue + category, nrow = plot_rows, nest_line = element_line(linetype = 1), scales = "free") +
     scale_fill_manual(values = tissue_category_colors) +
     scale_y_continuous(expand = expansion(mult = c(0, 0.1))) +
     scale_x_continuous(breaks = 1:10, labels = scales::label_ordinal()) +
@@ -511,13 +511,12 @@ plot_driver_incidence = function(mutation_list, drivers, name, plot_rows = 2) {
                              aes(label = percentage_label, y = mean_mutrate), vjust = -0.2, nudge_x = -0.12) +
     ggpubr::geom_bracket(data = mut_percent_50, aes(xmin = 0, xmax = 0.5,
                                                     y.position = ymax * 0.15, label = label)) +
-    ggh4x::facet_nested_wrap(. ~ factor(tissue, c("blood", "colon", "lung")), nrow = plot_rows, scale = "free",
-                             nest_line = element_line(linetype = 1)) +
+    ggh4x::facet_nested_wrap(. ~ tissue, nrow = plot_rows, scale = "free", nest_line = element_line(linetype = 1)) +
     scale_fill_manual(values = tissue_category_colors) +
     scale_y_continuous(expand = expansion(mult = c(0, 0.1)), breaks = extended_breaks(4),
                        labels = function(x) x * 1e6) +
     scale_x_continuous(breaks = c(0, 0.5, 1), labels = label_percent()) +
-    labs(x = expression("SNVs ordered by mutation probability: low" %->% "high"),
+    labs(x = "SNVs ordered by mutation probability",
          y = expression("SNV probability/cell ("*x10^-6*")")) +
     cowplot::theme_cowplot() +
     coord_cartesian(clip = "off") +
@@ -558,12 +557,11 @@ plot_driver_incidence = function(mutation_list, drivers, name, plot_rows = 2) {
               vjust = -0.2, nudge_x = -0.12) +
     ggpubr::geom_bracket(data = mut_ncells_label, aes(xmin = 0, xmax = 0.5,
                                                       y.position = ymax * 0.15, label = label)) +
-    ggh4x::facet_nested_wrap(. ~ factor(tissue, c("blood", "colon", "lung")) + ncells, nrow = plot_rows,
-                             nest_line = element_line(linetype = 1), scale = "free") +
+    ggh4x::facet_nested_wrap(. ~ tissue + ncells, nrow = plot_rows, nest_line = element_line(linetype = 1), scale = "free") +
     scale_fill_manual(values = tissue_category_colors) +
     scale_y_continuous(expand = expansion(mult = c(0, 0.1)), breaks =  extended_breaks(4)) +
     scale_x_continuous(breaks = c(0,0.5, 1), labels = label_percent()) +
-    labs(x = expression("SNVs ordered by mutation probability: low" %->% "high"),
+    labs(x = "SNVs ordered by mutation probability",
          y = "Number of cells with SNV") +
     cowplot::theme_cowplot() +
     coord_cartesian(clip = "off") +
@@ -595,7 +593,6 @@ plot_driver_incidence = function(mutation_list, drivers, name, plot_rows = 2) {
     tissue_basic_colors_plot = tissue_basic_colors
     names(tissue_basic_colors_plot) = gini_table[["label"]][match(names(tissue_basic_colors), gini_table$tissue)]
 
-
     pl[["lorenz_plot"]] = df_lc_plot |>
       ggplot(aes(x = x, color = label, y = value)) +
       geom_line() +
@@ -614,7 +611,12 @@ plot_driver_incidence = function(mutation_list, drivers, name, plot_rows = 2) {
   return(pl)
 }
 
+exome_list = exome_analysis$result_plot_df
 exome_normal_list = exome_list |> filter(category %in% c("normal", "non-smoker"))
+drivers_normal = drivers |> filter(category %in% c("normal", "non-smoker"))
+plot_list_normal = plot_driver_incidence(mutation_list = exome_normal_list,
+                                         drivers = drivers_normal, name = "normal_exome", plot_rows = 1)
+
 drivers_normal = drivers |> filter(category %in% c("normal", "non-smoker"))
 plot_list_normal = plot_driver_incidence(mutation_list = exome_normal_list,
                                          drivers = drivers_normal, name = "normal_exome", plot_rows = 1)
@@ -630,7 +632,6 @@ ggsave("plots/coverage_saturation/fig1_lorenz_plot.png", plot_list_normal$lorenz
 
 # TODO make a figures script to fit figure 1 and 2 into:
 library(ggpubr)
-
 
 prep_plot = function(plot, label, t = 5, r = 5 , l = 5, b = 5) {
 
@@ -656,15 +657,13 @@ figure_2D = prep_plot(figure_2D, label = "D")
 figure_2_bottom =  figure_2C + figure_2D +
   plot_layout(widths = c(2.2, 1))
 figure_2 = figure_2B / figure_2_bottom
-figure_2
 
 # save figures:
-ggsave("manuscript/Figure_1/figure_1.png", figure_1, width = 17, height = 5)
-ggsave("manuscript/Figure_2/figure_2.png", figure_2, width = 17, height = 9)
+ggsave("manuscript/Figure_1/figure_1.png", figure_1, width = 15, height = 4.5)
+ggsave("manuscript/Figure_2/figure_2.png", figure_2, width = 15, height = 9)
 
 # exploration of mutation distribution plots for TP53 driver mutations:
 TP53_plots = plot_driver_incidence(mutation_list = TP53_analysis$result_plot_df,
                                    drivers = drivers[grepl("TP53", driver_name)],
                                    name = "TP53")
 save_plots(TP53_plots, "plots/coverage_saturation/", "TP53_drivers")
-

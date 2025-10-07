@@ -17,20 +17,21 @@ for (file in r_funcs) {
 
 
 # default number of cells - 70kg male individual
-tissue_ncells = data.frame(tissue = c("blood", "colon", "lung", "skin"),
-                           ncells = c(1e5, 6.60e7, 4.33e+9, 2.53e+9))
+tissues = factor(c("colon", "lung", "blood"), levels = c("colon", "lung", "blood"))
+tissue_ncells = data.frame(tissue = tissues,
+                           ncells = c(6.60e7, 4.33e+9,1e5))
 
 # default number of cells - low: female, high: male, mid: middle
-tissue_ncells_ci = data.frame(tissue = c("blood", "colon", "lung", "skin"),
-                              high_estimate = c(1.3e6, 6.60e7, 4.33e+9, 2.53e+9),
-                              mid_estimate = c(1e5, NA, NA, NA),
-                              low_estimate = c(2.5e4, 6.42e+7, 3.87e+9, 1.76e+9))
+tissue_ncells_ci = data.frame(tissue = tissues,
+                              high_estimate = c(6.60e7, 4.33e+9, 1.3e6),
+                              mid_estimate = c(NA, NA, 1e5),
+                              low_estimate = c(6.42e+7, 3.87e+9, 2.5e4))
 # for all values for which we do no have the 'mean
-tissue_ncells_ci$mid_estimate[2:4] = (tissue_ncells_ci$high_estimate[2:4] + tissue_ncells_ci$low_estimate[2:4]) /2
+tissue_ncells_ci$mid_estimate[1:2] = (tissue_ncells_ci$high_estimate[1:2] + tissue_ncells_ci$low_estimate[1:2]) /2
 # Take the 'exteme of the values to demonstrate that most estimates still hold
 tissue_ncells_ci_wide = tissue_ncells_ci
-tissue_ncells_ci_wide$high_estimate[2:4] = tissue_ncells_ci$high_estimate[2:4] * 5
-tissue_ncells_ci_wide$low_estimate[2:4] = tissue_ncells_ci$low_estimate[2:4] / 5
+tissue_ncells_ci_wide$high_estimate[1:2] = tissue_ncells_ci$high_estimate[1:2] * 5
+tissue_ncells_ci_wide$low_estimate[1:2] = tissue_ncells_ci$low_estimate[1:2] / 5
 
 # Default colors for the different tissues
 blood_colors = c(normal ="#ff725c", chemotherapy = "lightgreen")
@@ -52,8 +53,6 @@ tissue_category_colors = setNames(color_df$color, color_df$tissue_category)
 
 tissue_basic_colors = c(colon_colors[1], blood_colors[1], lung_colors[1])
 names(tissue_basic_colors) = c("colon", "blood", "lung")
-
-
 
 # get mutrisk specific objects:
 TRIPLETS_96 = getFromNamespace("TRIPLETS_96", "mutrisk")
