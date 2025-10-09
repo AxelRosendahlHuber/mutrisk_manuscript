@@ -215,8 +215,6 @@ rates = expected_rate_DNMT3A |>
   pivot_wider(names_from = aachange, values_from = mrate)
 
 # rates
-ggplot(rates, aes(x = age, y= R882H)) +
-  geom_point()
 
 df_rate = data.frame(names = c("R882H", "R882C", "R882S", "R882P"),
   yearly_mutation_rate = c(lm(R882H  ~ age, data = rates)$coef[[2]],

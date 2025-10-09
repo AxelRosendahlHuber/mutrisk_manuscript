@@ -518,26 +518,6 @@ expected_cb_muts = list(all_sigs = drivers2_all, no_colibactin = drivers2_nocb) 
   mutate(type = fct_relevel(type,  "no_colibactin", "all_sigs")) |>
   arrange(type)
 
-# mutation rates for other driver genes
-site_freqs_drivers_all = cancer_bDM[driver == TRUE, .N, by = c("mut_type", "gene_name")]
-mrate_sigs_all_driver = get_gene_rate_sig(exp_rates = signature_rates, metadata,
-                                          site_freqs = site_freqs_drivers_all, ratios = ratios)
-
-plot_all_drivers = mrate_sigs_all_driver |>
-  group_by(category, age, gene_name, donor) |>
-  summarize(mle = sum(mle) * ncells) |>
-  ggplot(aes(x = age, y = mle, color = gene_name)) +
-  geom_line() +
-  geom_point() +
-  facet_grid(. ~ category) +
-  ggsci::scale_color_igv() +
-  scale_y_continuous(sec.axis = sec_axis(name = "% of cells with mutation", ~ . / ncells, labels = scales::label_percent()),
-                     labels = label_comma()) +
-  theme_cowplot() + panel_border() +
-  labs(y = "number of mutated cells for gene" )
-plot_all_drivers
-ggsave(paste0("plots/", tissue, "/all_driver_genes.png"), width = 10, height = 4, bg = "white")
-
 # get the average rates for the individual cells
 gene_muts = cancer_bDM[gene_name == "APC" , c("chr", "pos", "gene_name", "mut_type", "aachange", "position")]
 expected_rate_pos_sc = expected_rates |>
@@ -571,22 +551,7 @@ figure_2 = wrap_plots(row1, row2, row3, row4, ncol = 1) + plot_annotation(tag_le
 ggsave("plots/manuscript/main_figures/figure_2.svg", figure_2, width = 22, height = 19, bg = "white", dpi = 600)
 ggsave("plots/manuscript/main_figures/figure_2.png", figure_2, width = 19, height = 20, bg = "white", dpi = 600)
 
-figure_2 # plot the final figure
-
-#rmarkdown::render("Figure_2_colon.R") # comment because command returns infinite loop
-
-#### Prepare information for figure 5: Colon specific sequence-of events cancer driverness - risk
-# load cancer incidence rates
-# bowel_cancer = readxl::read_xlsx("raw_data/incidence_rates/cases_crude_mf_bowel_i19.xlsx", skip = 4)[1:19,] |>
-#   mutate(start_age = as.numeric(str_split_i(`Age Range`, " ", 1)),
-#          end_age = as.numeric(str_split_i(`Age Range`, " ", 3)),
-#          `Age Range` = as.factor(`Age Range`),
-#          label = str_pad(`Male Rates`, width = max(str_width(`Male Rates`)), side = "both"))  # Center pad
-#
-# bowel_cancer[19, "start_age"] = 90
-# bowel_cancer[19, "end_age"] = 94
-#
-# saveRDS(bowel_cancer, "processed_data/colon/bowel_cancer.rds")
+figure_2
 
 # APC rates for a single cell
 apc_double_driver_sc = apc_double_driver |>
@@ -610,7 +575,3 @@ vogelgram_mut_risks_long = vogelgram_mut_risks |>
   pivot_longer(-c(category, donor, age), names_to = "mutation", values_to = "expected_mutated_cells")
 
 saveRDS(vogelgram_mut_risks_long, "processed_data/colon/vogelgram_plot.rds")
-
-
-
-

@@ -5,10 +5,10 @@ library(patchwork)
 library(rtracklayer)
 library(scales)
 library(mutrisk)
-source("code/functions/plot_mut_prob.R")
+source("~/Nextcloud/Documents/mutrisk_manuscript/code/functions/plot_mut_prob.R")
 
 # load R functions
-r_funcs = list.files('code/functions/', full.names = T, include.dirs = FALSE, recursive = TRUE, pattern = ".R$")
+r_funcs = list.files('~/Nextcloud/Documents/mutrisk_manuscript/code/functions/', full.names = T, include.dirs = FALSE, recursive = TRUE, pattern = ".R$")
 r_funcs = r_funcs[!grepl("analysis_variables.R", r_funcs)]
 for (file in r_funcs) {
   print(file)

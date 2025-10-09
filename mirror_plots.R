@@ -152,9 +152,9 @@ barplot_blood = make_gene_barplot(boostdm, ratios, gene_of_interest = "TP53", ti
 barplot_colon = make_gene_barplot(boostdm, ratios, gene_of_interest = "TP53", tissue_select = "colon") +   ylab(NULL)
 wrap_plots(barplot_colon, barplot_lung, barplot_blood, ncol = 1, guides = "collect")
 
-prob_barplot_lung = make_gene_barplot(boostdm, ratios, gene_of_interest = "TP53", tissue_select = "lung", category_select = "non-smoker", cell_probabilities = TRUE)
-prob_barplot_blood = make_gene_barplot(boostdm, ratios, gene_of_interest = "TP53", tissue_select = "blood", cell_probabilities = TRUE)
-prob_barplot_colon = make_gene_barplot(boostdm, ratios, gene_of_interest = "TP53", tissue_select = "colon", cell_probabilities = TRUE)
+prob_barplot_lung = make_gene_barplot(boostdm, ratios, gene_of_interest = "TP53", tissue_select = "lung", category_select = "non-smoker", cell_probabilities = FALSE)
+prob_barplot_blood = make_gene_barplot(boostdm, ratios, gene_of_interest = "TP53", tissue_select = "blood", cell_probabilities = FALSE)
+prob_barplot_colon = make_gene_barplot(boostdm, ratios, gene_of_interest = "TP53", tissue_select = "colon", cell_probabilities = FALSE)
 wrap_plots(prob_barplot_colon, prob_barplot_lung, prob_barplot_blood, ncol = 1, guides = "collect")
 
 # horizontal plot
@@ -163,18 +163,39 @@ prob_barplot_blood_h = prob_barplot_blood + ylab(NULL)
 wrap_plots(prob_barplot_colon, prob_barplot_lung_h,
            prob_barplot_blood_h, ncol = 3, guides = "collect") & ggtitle(NULL)
 
+prob_barplot_colon_v = prob_barplot_colon + labs(x = NULL, y = NULL) + theme(axis.text.x = element_blank())
+prob_barplot_lung_v = prob_barplot_lung + labs(x = NULL) + theme(axis.text.x = element_blank()) +
+  scale_y_continuous(labels = scales::label_comma())
+prob_barplot_blood_v = prob_barplot_blood + labs(y = NULL)
+wrap_plots(prob_barplot_colon_v, prob_barplot_lung_v,
+           prob_barplot_blood_v, ncol = 1, guides = "collect") & ggtitle(NULL)
+
+
+
 # APC
 make_gene_barplot(boostdm, ratios, gene_of_interest = "APC", tissue_select = "colon", cell_probabilities = FALSE) +
-  facet_grid(driver ~ .) +
+  ggh4x::facet_grid2(driver ~ ., strip = strip_themed(background_y = elem_list_rect(fill = c("#C03830", "#707071")),
+                                                      text_y = elem_list_text(colour = c("white"), face = "bold"))) +
   scale_y_continuous(breaks = extended_breaks(4)) +
-  theme(legend.position = "inside", legend.position.inside = c(0.05, 0.8))
-
+  theme(legend.position = "inside", legend.position.inside = c(0.05, 0.85),
+        legend.text = element_text(size = rel(0.8)),
+        legend.title = element_text(size = rel(0.8)),
+        legend.key.size = unit(0.8, "lines"), legend.background = element_blank())
 # make function, inputting the boostdm driver mutations, and the expected rates.
 # this will become the plot
 barplot_colon +
   facet_grid(driver ~ .) +
   scale_y_continuous(breaks = extended_breaks(4)) +
   theme(legend.position = "inside", legend.position.inside = c(0.05, 0.8))
+
+barplot_colon +
+  ggh4x::facet_grid2(driver ~ ., strip = strip_themed(background_y = elem_list_rect(fill = c("#C03830", "#707071")),
+                     text_y = elem_list_text(colour = c("white"), face = "bold"))) +
+  scale_y_continuous(breaks = extended_breaks(4)) +
+  theme(legend.position = "inside", legend.position.inside = c(0.05, 0.8),
+        legend.text = element_text(size = rel(0.8)),
+        legend.title = element_text(size = rel(0.8)),
+        legend.key.size = unit(0.8, "lines"), legend.background = element_blank())
 
 # plotting function making barplots
 make_summary_barplots = function(boostdm, ratios, gene_of_interest,

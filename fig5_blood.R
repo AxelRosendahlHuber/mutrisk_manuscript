@@ -25,9 +25,6 @@ genie_blood = fread("processed_data/GENIE_17/GENIE_17_processed.txt.gz") |>
                             "Myelodysplastic Syndromes","Mature T and NK Neoplasms",
                             "Myelodysplastic/Myeloproliferative Neoplasms"))
 
-
-
-
 # load boostdm_ch-genie-cosmic intersections
 CH_bDM = fread("processed_data/boostdm/boostdm_genie_cosmic/CH_boostDM_cancer.txt.gz")
 
@@ -82,7 +79,6 @@ ggplot(mutation_list |> filter(name %in% c("DNMT3A_R882H", "DNMT3A_drivers")),
   labs(y = "number of cells/individual",
        x = "Age (years)",fill = NULL) +
   theme(legend.position = "none")
-
 
 # for the fitness effect: we need to consider that we can only model mutations with a specific fitness effect
 
