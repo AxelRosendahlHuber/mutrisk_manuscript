@@ -69,7 +69,7 @@ metadata = fread(paste0("processed_data/", tissue, "/", tissue, "_metadata.tsv")
   filter(category == "normal")
 
 # load the mutation rates
-ncells = tissue_ncells_ci$mid_estimate[1]
+ncells = tissue_ncells_ci$mid_estimate[3]
 expected_rates = fread(paste0("processed_data/", tissue, "/", tissue, "_expected_rates.tsv.gz"))
 ratios = fread(paste0("processed_data/", tissue, "/", tissue, "_mut_ratios.tsv.gz"))
 
@@ -117,10 +117,11 @@ df_vogelgram_incidence = rbind(as.data.table(UKB_CH_incidence), vogelgram_mut_ri
   mutate(aachange = case_when(grepl("S$", name) ~ "R882S",
                               grepl("H$", name) ~ "R882H",
                               grepl("C$", name) ~ "R882C",
-                              grepl("P$", name) ~ "R882P"))
+                              grepl("P$", name) ~ "R882P"),
+         incidence_prob = ifelse(type == "UKB_incidence", incidence, get_prob_mutated_N(incidence/ncells, 1e5, 1)))
 
 base_plot = ggplot(df_vogelgram_incidence) +
-  geom_point(aes(x = age, y = incidence,
+  geom_point(aes(x = age, y = incidence_prob,
                  color = aachange, alpha = type)) +
   scale_alpha_manual(values = c(1, 1)) +
   cowplot::theme_cowplot()
@@ -232,7 +233,3 @@ ggplot(df_rate, aes(x = names, y = yearly_mutation_rate, fill = names)) +
             vjust = -0.2, position = position_dodge(0.9)) +
   theme(legend.position = "none") +
   labs(y = "yearly mutation rate", x = NULL)
-
-
-
-

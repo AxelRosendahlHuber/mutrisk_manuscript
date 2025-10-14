@@ -192,7 +192,6 @@ UKB_fraction_all = UKB_fraction |>
   summarize(fraction = sum(fraction)) |>
   select(age, fraction, type)
 
-
 rbind(clonal_growth_total, UKB_fraction_all) |>
   ggplot(aes(x = age, y = fraction, color = type)) +
   geom_line() +

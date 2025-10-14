@@ -301,71 +301,6 @@ for (i in 1:nrow(mutated_fractions)) {
 
 }
 
-# ###### Make the same plot comparing normal vs affected individuals:
-# # make in a for loop multiple plots - with for each of them the %age of CRC indicated
-# i = 1 # for testing purposes only
-# plot_fraction_affected_list = plot_list_affected = list(spacer = plot_spacer())
-# for (i in 1:nrow(mutated_fractions)) {
-#   print(i)
-#
-#   i_name = rownames(mutated_fractions)[i]
-#   ukbiobank_crc_plot_i = ukbiobank_crc_plot |>
-#     mutate(incidence = incidence * mutated_fractions[i, 1]) |>
-#     mutate(category = "CRC_cumulative_risk")
-#
-#   vogelgram_risks_i = vogelgram_risks_long |>
-#     filter(name == i_name)
-#
-#   # plot the mutation risk for individual cells:
-#   df_vogelgram_incidence = rbind(vogelgram_risks_i, ukbiobank_crc_plot_i) |>
-#     mutate(name = factor(name, levels = c("APC_single_snv", "KRAS_single_snv", "KRAS_APC_single",
-#                                           "APC_double", "KRAS_APC_double", "CRC_cumulative_risk")))
-#
-#   # add fold change to the plots:
-#   vogelgram_risks_i_old = df_vogelgram_incidence |> filter(age > 40 & name != "CRC_cumulative_risk")
-#   mean_incidence_ukbiobank = ukbiobank_crc_plot_i |>
-#     filter(age %in% vogelgram_risks_i_old$age) |>
-#     pull(incidence) |> mean()
-#
-#   mean_incidence_clones = vogelgram_risks_i_old |>
-#     pull(incidence) |> mean()
-#
-#   ratio_mut_cells_crc = mean_incidence_clones / mean_incidence_ukbiobank
-#
-#   plot_list_affected[[i_name]] = df_vogelgram_incidence |>
-#     ggplot(aes(x = age)) +
-#     geom_point(aes(x = age, y = incidence, color = category)) +
-#     scale_y_log10(guide = "axis_logticks",
-#                   breaks = c(1e-4, 1e-2,  1, 100, 1e4, 1e6),
-#                   labels = ~ ifelse(.x < 1, scales::comma(.x), scales::comma(.x, accuracy = 1))) +
-#     scale_color_manual(values = c(colon_colors, "black")) +
-#     theme_cowplot()  +
-#     theme(legend.position = "inside", legend.position.inside = c(0.4, 0.1), legend.background = element_rect(fill = alpha("white", 0.7)),
-#           legend.margin = margin(1,1,1,1,"mm")) +
-#     coord_cartesian(clip = 'off') +
-#     labs(y = "Incidence", x = "Age (years)", color = NULL, title = i_name,
-#          subtitle = paste0("Percentage of CRC = ",format(mutated_fractions[i, 1]*100, digits = 3)))
-#
-#   # plot the individual fractions summing up to 1
-#   plot_fraction_affected_list[[i_name]] = df_vogelgram_incidence |>
-#     mutate(incidence = ifelse(name != "CRC_cumulative_risk",
-#                               get_prob_mutated_N(incidence/ncells, ncells = ncells),
-#                               incidence)) |>
-#     ggplot(aes(x = age)) +
-#     geom_point(aes(x = age, y = incidence, color = category)) +
-#     scale_y_log10(guide = "axis_logticks",
-#                   breaks = c(1e-4, 1e-2,  1, 100, 1e4, 1e6),
-#                   labels = ~ ifelse(.x < 1, scales::comma(.x), scales::comma(.x, accuracy = 1))) +
-#     scale_color_manual(values = c(colon_colors, CRC_cumulative_incidence =  "black")) +
-#     theme_cowplot()  +
-#     theme(legend.position = "inside", legend.position.inside = c(0.5, 0.2), legend.background = element_rect(fill = alpha("white", 0.7)),
-#           legend.margin = margin(1,1,1,1,"mm")) +
-#     coord_cartesian(clip = 'off') +
-#     labs(y = "Incidence mutation/CRCR cancer", x = "Age (years)", color = NULL, title = i_name,
-#          subtitle = paste0("Percentage of CRC = ",format(mutated_fractions[i, 1]*100, digits = 3)))
-#
-# }
-#
 
 #########################################################
 # overlay the number of expected polyps in the epithelium
@@ -389,22 +324,18 @@ ad_incidence = ad_incidence |>
          fraction_adenoma_apc = (`All sizes` * 0.54) / 10)
 ad_incidence_mean = ad_incidence |>
   group_by(min_age, max_age) |>
-  summarize(fraction_adenoma_apc = mean(fraction_adenoma_apc)) |>
+  summarize(fraction_adenoma_apc = mean(fraction_adenoma_apc))
+
+incidence_list = list()
+for (i in rownames(mutated_fractions)) {
+  ad = ad_incidence_mean
+  ad$fraction_adenoma_apc = ad_incidence_mean$fraction_adenoma_apc * mutated_fractions[i, 1]
+  incidence_list[[i]] = ad
+}
+ad_incidence_mean = rbindlist(incidence_list, idcol = "mutation")
+
+ad_incidence_mean = ad_incidence_mean |>
   mutate(fraction_adenoma_apc = get_prob_mutated_N(fraction_adenoma_apc, 1))
-
-plot_list_adenoma = lapply(
-  plot_fraction_list, \(x)
-  x + geom_segment(data = ad_incidence_mean,
-                   aes(x = min_age, xend = max_age,
-                       y = fraction_adenoma_apc)))
-
-plot_list_adenoma[[1]] = guide_area()
-wrap_plots(plot_list_adenoma) + plot_layout(guides = "collect") &
-  guides(color = "none") & labs(linetype = "Adenoma rate by sex:")
-
-wrap_plots(plot_list_adenoma) + plot_layout(guides = "collect") &
-  guides(color = "none") & labs(linetype = "Adenoma rate by sex:") &
-  scale_y_continuous()
 
 # Prevalence of Hyperplastic Polyps (HP) and Mean Number of HP per Ten   Intestines Examined, by Age and Sex
 # As these values are estimates of the actual number of individuals with these HP numbers,
@@ -448,15 +379,30 @@ vogelgram_mut_plot = vogelgram_mut_probs_long |>
                               "KRAS APC 1" ~ "KRAS 1 SNV APC 1 SNV",
                               .default = mutname))
 
+# filter plots:
+ad_incidence_mean  = ad_incidence_mean |>
+  mutate(mutname = gsub("_", " ", mutation),
+         mutname = gsub("single", "1", mutname),
+         mutname = gsub("snv", "SNV", mutname),
+         mutname = case_match(mutname, "APC double" ~ "APC 2 SNV",
+                              "KRAS APC double" ~ "KRAS 1 SNV APC 2 SNV",
+                              "KRAS APC 1" ~ "KRAS 1 SNV APC 1 SNV",
+                              .default = mutname))
+
 ggplot(vogelgram_mut_plot, aes(x = age, y = mut_probability)) +
   geom_smooth(aes( color = nmut), formula = y ~ x,se = FALSE,
               method = "glm", fullrange = TRUE,
               method.args = list(family = quasibinomial(link = "probit"))) +
-
-  geom_point(aes( color = nmut)) +
-  geom_point(data = ad_incidence_mean,
+#  geom_point(aes( color = nmut)) +
+  geom_smooth(data = ad_incidence_mean,
+              aes(x = (min_age + max_age)/2,
+                  y = fraction_adenoma_apc),
+              formula = y ~ x,se = FALSE,
+              method = "glm", fullrange = TRUE, color = "black",
+              method.args = list(family = quasibinomial(link = "probit"))) +
+    geom_point(data = ad_incidence_mean,
                aes(x = (min_age + max_age)/2,
-                   y = fraction_adenoma_apc), color = "grey") +
+                   y = fraction_adenoma_apc), color = "black") +
   scale_color_manual(values = c('#d73027','#f46d43','#fdae61','#fee08b','#ffffbf','#d9ef8b','#a6d96a','#66bd63','#1a9850')) +
   facet_wrap(mutname ~ . , scale = "free_y", axes = "all") +
   theme_cowplot() +
@@ -481,13 +427,18 @@ ukbiobank = rbindlist(ukbiobank_list, idcol = "mutation") |>
 
 vogelgram_mut_plot |>
   mutate(Nmut = factor(Nmut, levels = (unique(Nmut)))) |>
+  filter(Nmut %in% c(1)) |>
   ggplot(aes(x = age, y = mut_probability)) +
   geom_smooth(aes( color = nmut), formula = y ~ x,se = FALSE,
               method = "glm", fullrange = TRUE,
               method.args = list(family = quasibinomial(link = "probit"))) +
 
-  geom_point(aes( color = nmut)) +
   geom_point(data = ukbiobank, aes(x = age, y = incidence)) +
+  geom_smooth(data = ukbiobank,
+              aes(x = age, y = incidence),
+              formula = y ~ x,se = FALSE,
+              method = "glm", fullrange = TRUE, color = "black",
+              method.args = list(family = quasibinomial(link = "probit"))) +
   scale_color_manual(values = c('#d73027','#f46d43','#fdae61','#fee08b','#ffffbf','#d9ef8b','#a6d96a','#66bd63','#1a9850')) +
   facet_wrap(mutname ~ . , scale = "free_y", axes = "all") +
   theme_cowplot() +

@@ -13,8 +13,13 @@ md_files = list.files("processed_data/", recursive = TRUE, pattern = "metadata",
 names(md_files) = gsub("_.*", "", basename(md_files))
 metadata = lapply(md_files, fread) |>
   rbindlist(idcol = "tissue", use.names = TRUE, fill = TRUE) |>
-  dplyr::select(any_of(c("sampleID", "category", "age", "donor"))) |>
+  dplyr::select(any_of(c("tissue", "sampleID", "category", "age", "donor"))) |>
   dplyr::distinct()
+
+metadata |> select(tissue, age, donor) |> distinct() |>
+    filter(donor %in% c("O340", "PD34215", "KX008"))
+
+# find out more information about the donor: Male/Female
 
 groupby = "donor"
 
@@ -366,6 +371,14 @@ figure_2D = exome_analysis_normal$plot_list$plot_saturation_age +
   labs(fill = NULL) +
   scale_fill_manual(labels = c("Blood normal", "Colon normal", "Lung non-smoker"), values = tissue_category_colors)
 
+exome_analysis_normal$plot_list$plot_saturation_age +
+  geom_smooth(aes(color = tissue_category), formula = y ~ x,se = FALSE,
+              method = "glm", fullrange = TRUE,
+              method.args = list(family = quasibinomial(link = "probit")), show.legend = FALSE) +
+  theme(legend.position = "inside", legend.position.inside = c(0.6, 0.5)) +
+  labs(fill = NULL) +
+  scale_fill_manual(labels = c("Blood normal", "Colon normal", "Lung non-smoker"), values = tissue_category_colors)
+
 # For the text: Get the proportion of mutated sites with at least one mutation:
 exome_analysis_normal$intersects |>
   filter(tissue == "blood") |>
@@ -435,24 +448,36 @@ driver_names = c("KRAS G12V", "KRAS G12D", "TP53 R248Q", "TP53 R175H", "APC R145
 names(driver_list) = driver_names
 drivers = rbindlist(driver_list, idcol = "driver_name")
 
+# TODO: Change the 'x' column
 
-plot_driver_incidence = function(mutation_list, drivers, name, plot_rows = 2) {
+plot_driver_incidence = function(mutation_list, drivers, name, plot_rows = 2, specific_individuals = FALSE) {
 
   mutation_list$driver_name = NA
-  driver_summary = drivers[,.(mean_mutated = mean(n_mutated_cells)), by = c("driver_name", "tissue", "category", "x")]
-  mut_summary = mutation_list[, .(mean_mutated = mean(n_mutated_cells)), by = c("driver_name", "tissue", "category", "x", "ncells")] |>
-    mutate(category_tissue = paste0(tissue, "_", category))
+  if (specific_individuals[1] == FALSE) {
+    print("no specific individual assigned - taking the mean of the cohort")
+    driver_summary = drivers[,.(mutated_rate = mean(n_mutated_cells)), by = c("driver_name", "tissue", "category", "x")]
+    mut_summary = mutation_list[, .(mutated_rate = mean(n_mutated_cells)), by = c("tissue", "category", "x", "ncells")] |>
+      mutate(category_tissue = paste0(tissue, "_", category))
+  } else if (all(specific_individuals %in% unique(mutation_list$name))) {
+    driver_summary = drivers[name %in% specific_individuals, c("driver_name", "tissue", "category", "n_mutated_cells", "x")] |>
+      dplyr::rename(mutated_rate = n_mutated_cells)
+    mut_summary = mutation_list[name %in% specific_individuals, c("tissue", "category", "n_mutated_cells", "x", "ncells")] |>
+      dplyr::rename(mutated_rate = n_mutated_cells) |>
+      mutate(category_tissue = paste0(tissue, "_", category))
+  } else {
+    print("specific_individuals must be part of the mutation_list and drivers dataframes")
+  }
 
   # add the matching "x" which is the closest to the driver rate observed.
   for (i in 1:nrow(driver_summary)) {
     tissue_select = driver_summary[["tissue"]][i]
     category_select = driver_summary[["category"]][i]
-    mutrate_driver = driver_summary[["mean_mutated"]][i]
+    mutrate_driver = driver_summary[["mutated_rate"]][i]
 
     closest_x = mut_summary |>
       filter(tissue == tissue_select,
              category == category_select) |>
-      mutate(diff = abs(mean_mutated - mutrate_driver)) |>
+      mutate(diff = abs(mutated_rate - mutrate_driver)) |>
       filter(diff == min(diff)) |> pull(x)
     driver_summary[["x"]][i] = closest_x
   }
@@ -463,9 +488,9 @@ plot_driver_incidence = function(mutation_list, drivers, name, plot_rows = 2) {
   mut_deciles = mut_summary |>
     mutate(decile = ntile(x, 10)) %>%
     group_by(tissue, category, category_tissue, decile) %>%
-    summarise(sum_mutated = sum(mean_mutated),
-              mean_mutrate = mean(mean_mutated),
-              median_mutrate = median(mean_mutated), .groups = "drop_last") |>
+    summarise(sum_mutated = sum(mutated_rate),
+              mean_mutrate = mean(mutated_rate),
+              median_mutrate = median(mutated_rate), .groups = "drop_last") |>
     mutate(percentage = sum_mutated / sum(sum_mutated),
            percentage_label = paste0(round(percentage * 100, 1), "%"))
 
@@ -489,10 +514,10 @@ plot_driver_incidence = function(mutation_list, drivers, name, plot_rows = 2) {
   mut_percent = mut_summary |>
     mutate(percent = ntile(x, 100)) %>%
     group_by(tissue, category, category_tissue, percent) %>%
-    mutate(mean_mutated = mean_mutated / ncells ) |>  # transform the mean mutated fraction to the probability (by dividing by the number of cells)
-    summarise(sum_mutated = sum(mean_mutated),
-              mean_mutrate = mean(mean_mutated),
-              median_mutrate = median(mean_mutated), .groups = "drop_last") |>
+    mutate(mutated_rate = mutated_rate / ncells ) |>  # transform the mean mutated fraction to the probability (by dividing by the number of cells)
+    summarise(sum_mutated = sum(mutated_rate),
+              mean_mutrate = mean(mutated_rate),
+              median_mutrate = median(mutated_rate), .groups = "drop_last") |>
     mutate(percentage = sum_mutated / sum(sum_mutated),
            percentage_label = paste0(round(percentage * 100, 1), "%"))
 
@@ -516,7 +541,7 @@ plot_driver_incidence = function(mutation_list, drivers, name, plot_rows = 2) {
     scale_y_continuous(expand = expansion(mult = c(0, 0.1)), breaks = extended_breaks(4),
                        labels = function(x) x * 1e6) +
     scale_x_continuous(breaks = c(0, 0.5, 1), labels = label_percent()) +
-    labs(x = "SNVs ordered by mutation probability",
+    labs(x = "exome SNV sites\nsorted by mutation probability",
          y = expression("SNV probability/cell ("*x10^-6*")")) +
     cowplot::theme_cowplot() +
     coord_cartesian(clip = "off") +
@@ -530,9 +555,9 @@ plot_driver_incidence = function(mutation_list, drivers, name, plot_rows = 2) {
   mut_ncells = mut_summary |>
     mutate(percent = ntile(x, 100)) %>%
     group_by(tissue, category, category_tissue, percent, ncells) %>%
-    summarise(sum_mutated = sum(mean_mutated),
-              mean_mutrate = mean(mean_mutated),
-              median_mutrate = median(mean_mutated), .groups = "drop_last") |>
+    summarise(sum_mutated = sum(mutated_rate),
+              mean_mutrate = mean(mutated_rate),
+              median_mutrate = median(mutated_rate), .groups = "drop_last") |>
     mutate(percentage = sum_mutated / sum(sum_mutated),
            percentage_label = paste0(round(percentage * 100, 1), "%"),
            ncells = format_bignum(ncells))
@@ -561,7 +586,7 @@ plot_driver_incidence = function(mutation_list, drivers, name, plot_rows = 2) {
     scale_fill_manual(values = tissue_category_colors) +
     scale_y_continuous(expand = expansion(mult = c(0, 0.1)), breaks =  extended_breaks(4)) +
     scale_x_continuous(breaks = c(0,0.5, 1), labels = label_percent()) +
-    labs(x = "SNVs ordered by mutation probability",
+    labs(x = "exome SNV sites\nsorted by mutation probability",
          y = "Number of cells with SNV") +
     cowplot::theme_cowplot() +
     coord_cartesian(clip = "off") +
@@ -575,12 +600,12 @@ plot_driver_incidence = function(mutation_list, drivers, name, plot_rows = 2) {
 
     gini_table = mut_summary |>
       group_by(tissue, category, category_tissue) |>
-      summarize(gini = ineq::Gini(mean_mutated)) |>
+      summarize(gini = ineq::Gini(mutated_rate)) |>
       mutate(label = paste(tissue, " Gini:", round(gini,2)))
 
     lc_values = mut_summary |>
-      select(tissue, mean_mutated, x) |>
-      pivot_wider(names_from = tissue, values_from = mean_mutated) |>
+      select(tissue, mutated_rate, x) |>
+      pivot_wider(names_from = tissue, values_from = mutated_rate) |>
       arrange(x)
 
     df_lc = sapply(lc_values[,-1], \(x) ineq::Lc(x)$L) |>
@@ -601,7 +626,7 @@ plot_driver_incidence = function(mutation_list, drivers, name, plot_rows = 2) {
       scale_color_manual(values = tissue_basic_colors_plot) +
       scale_x_continuous(labels = label_percent(), expand = expansion(mult = c(0, 0)), limits = c(NA,1)) +
       scale_y_continuous(expand = expansion(mult = c(0.0, 0)), limits = c(NA,1)) +
-      labs(x = expression("SNVs ordered by mutation probability"),
+      labs(x = "exome SNV sites\nsorted by mutation probability",
            y = 'Cumulative share of mutations', color = NULL) +
       cowplot::theme_cowplot() +
       theme(legend.position = "inside", legend.position.inside = c(0.05, 0.83))
@@ -611,19 +636,25 @@ plot_driver_incidence = function(mutation_list, drivers, name, plot_rows = 2) {
   return(pl)
 }
 
+# Select individuals for the plot:
+individuals = metadata |> select(tissue, category, age, donor) |> distinct() |>
+  filter(age > 50 & category %in% c("normal", "non-smoker")) |> arrange(age)
+
 exome_list = exome_analysis$result_plot_df
 exome_normal_list = exome_list |> filter(category %in% c("normal", "non-smoker"))
 drivers_normal = drivers |> filter(category %in% c("normal", "non-smoker"))
 plot_list_normal = plot_driver_incidence(mutation_list = exome_normal_list,
-                                         drivers = drivers_normal, name = "normal_exome", plot_rows = 1)
+                                         drivers = drivers_normal, name = "normal_exome", plot_rows = 1,
+                                         specific_individuals = c("O340", "PD34215", "KX008"))
 
 drivers_normal = drivers |> filter(category %in% c("normal", "non-smoker"))
-plot_list_normal = plot_driver_incidence(mutation_list = exome_normal_list,
-                                         drivers = drivers_normal, name = "normal_exome", plot_rows = 1)
+plot_list_normal_individuals = plot_driver_incidence(mutation_list = exome_normal_list,
+                                         drivers = drivers_normal, name = "normal_exome", plot_rows = 1,
+                                         specific_individuals = c("O340", "PD34215", "KX008"))
 
-plot_list_normal$barplot_percent_probability
-plot_list_normal$barplot_percent_ncells
-plot_list_normal$lorenz_plot
+plot_list_normal = plot_driver_incidence(mutation_list = exome_normal_list,
+                                                     drivers = drivers_normal, name = "normal_exome", plot_rows = 1,
+                                                     specific_individuals = c("O340", "PD34215", "KX008"))
 
 save_plots(plot_list_normal, "plots/coverage_saturation/", name = "normal_exome_wide", width = 10, height = 5)
 save_plots(plot_list_normal, "plots/coverage_saturation/", name = "normal_exome", width = 6.5, height = 5)
@@ -631,23 +662,16 @@ ggsave("plots/coverage_saturation/fig1_lorenz_plot.png", plot_list_normal$lorenz
 
 
 # TODO make a figures script to fit figure 1 and 2 into:
-library(ggpubr)
+figure_1c = prep_plot(plot_list_normal_individuals$barplot_percent_probability, label = "C")
+figure_1D = prep_plot(plot_list_normal$lorenz_plot, label = "D")
 
-prep_plot = function(plot, label, t = 5, r = 5 , l = 5, b = 5) {
-
-  plot = plot + theme(plot.margin = margin(t,r,l, b, unit = "mm"))
-  annotate_figure(plot, fig.lab = label, fig.lab.size = 20, fig.lab.face = "bold")
-}
-
-figure_1B = prep_plot(plot_list_normal$barplot_percent_probability, label = "B")
-figure_1C = prep_plot(plot_list_normal$lorenz_plot, label = "C")
-
-figure_1 = figure_1B + figure_1C +
+figure_1 = figure_1C + figure_1D +
   plot_layout(widths = c(2.5, 1))
 figure_1
 
-figure_2B = prep_plot(plot_list_normal$barplot_percent_ncells, label = "B")
-figure_2C = prep_plot(exome_analysis_normal$plot_list$plot_saturation_curve_ci, label = "C")
+figure_2B = prep_plot(plot_list_normal$barplot_percent_ncells, label = "C")
+figure_2C = prep_plot(exome_analysis_normal$plot_list$plot_saturation_curve_ci, label = "D")
+
 figure_2D = exome_analysis_normal$plot_list$plot_saturation_age +
   theme(legend.position = "inside", legend.position.inside = c(0.75, 0.5)) +
   labs(fill = NULL, title = NULL, subtitle = NULL, x = 'Age (years)') +
@@ -667,3 +691,4 @@ TP53_plots = plot_driver_incidence(mutation_list = TP53_analysis$result_plot_df,
                                    drivers = drivers[grepl("TP53", driver_name)],
                                    name = "TP53")
 save_plots(TP53_plots, "plots/coverage_saturation/", "TP53_drivers")
+
