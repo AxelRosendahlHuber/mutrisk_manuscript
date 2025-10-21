@@ -86,6 +86,16 @@ names(metadata_files) = str_split_i(metadata_files, "\\/", 2)
 metadata = lapply(metadata_files, \(x) fread(x)[,c("sampleID", "category", "age", "donor")]) |>
   rbindlist(idcol = "tissue")
 
+metadata |>
+  count(tissue, category)
+
+metadata |>
+  select(tissue, category, donor) |> distinct() |>
+  count(tissue, category)
+
+
+# get numbers for presentation:
+
 # load the mutation rates
 expected_rate_list = list()
 ratio_list = list()
@@ -346,7 +356,6 @@ df_mirror = bind_rows(mutations_blood_DNMT3A, UKB_DNMT3A_counts) |>
     mrate = ifelse(tissue_category == "Expected mutrate\nblood", 0-mrate, mrate)) |>
   ungroup()
 
-
 # way to make the plot extend both upper and lower axes
 df_point = df_mirror |>
   group_by(tissue_category, position) |>
@@ -368,3 +377,8 @@ F5B = ggplot(df_point, aes(x = position, y = mrate)) +
   theme(legend.position = "none", panel.spacing.y = unit(0, "mm")) +
   labs(y = "Number expected/\nobserved muts",  x = "AA position") +
   scale_y_continuous(expand=expansion(mult=c(0,0)), breaks = scales::breaks_extended(n = 3))
+
+saveRDS(F5B, "processed_data/plots/F5B.rds")
+
+
+

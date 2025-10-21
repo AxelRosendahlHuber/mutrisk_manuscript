@@ -662,15 +662,15 @@ ggsave("plots/coverage_saturation/fig1_lorenz_plot.png", plot_list_normal$lorenz
 
 
 # TODO make a figures script to fit figure 1 and 2 into:
-figure_1c = prep_plot(plot_list_normal_individuals$barplot_percent_probability, label = "C")
+figure_1C = prep_plot(plot_list_normal_individuals$barplot_percent_probability, label = "C")
 figure_1D = prep_plot(plot_list_normal$lorenz_plot, label = "D")
 
 figure_1 = figure_1C + figure_1D +
   plot_layout(widths = c(2.5, 1))
 figure_1
 
-figure_2B = prep_plot(plot_list_normal$barplot_percent_ncells, label = "C")
-figure_2C = prep_plot(exome_analysis_normal$plot_list$plot_saturation_curve_ci, label = "D")
+figure_2B = prep_plot(plot_list_normal$barplot_percent_ncells, label = "B")
+figure_2C = prep_plot(exome_analysis_normal$plot_list$plot_saturation_curve_ci, label = "C")
 
 figure_2D = exome_analysis_normal$plot_list$plot_saturation_age +
   theme(legend.position = "inside", legend.position.inside = c(0.75, 0.5)) +
@@ -683,7 +683,7 @@ figure_2_bottom =  figure_2C + figure_2D +
 figure_2 = figure_2B / figure_2_bottom
 
 # save figures:
-ggsave("manuscript/Figure_1/figure_1.png", figure_1, width = 15, height = 4.5)
+ggsave("manuscript/Figure_1/figure_1CD.png", figure_1, width = 15, height = 4.5)
 ggsave("manuscript/Figure_2/figure_2.png", figure_2, width = 15, height = 9)
 
 # exploration of mutation distribution plots for TP53 driver mutations:

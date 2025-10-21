@@ -39,7 +39,6 @@ ratios = rbindlist(ratio_list, idcol = "tissue", use.names = TRUE)
 # filters
 gene_of_interest = "TP53"
 
-
 merge_mutrisk_drivers = function(boostdm, ratios, gene_of_interest, tissue_select = "colon",
                                  category_select = "normal", cell_probabilities = FALSE,
                                  individual = FALSE, older_individuals = TRUE) {
@@ -153,7 +152,7 @@ wrap_plots(barplot_colon, barplot_lung, barplot_blood, ncol = 1, guides = "colle
 prob_barplot_lung = make_gene_barplot(boostdm, ratios, gene_of_interest = "TP53", tissue_select = "lung", category_select = "non-smoker", cell_probabilities = FALSE)
 prob_barplot_blood = make_gene_barplot(boostdm, ratios, gene_of_interest = "TP53", tissue_select = "blood", cell_probabilities = FALSE)
 prob_barplot_colon = make_gene_barplot(boostdm, ratios, gene_of_interest = "TP53", tissue_select = "colon", cell_probabilities = FALSE)
-wrap_plots(prob_barplot_colon, prob_barplot_lung, prob_barplot_blood, ncol = 1, guides = "collect")
+F3B = wrap_plots(prob_barplot_colon, prob_barplot_lung, prob_barplot_blood, ncol = 1, guides = "collect")
 
 # horizontal plot
 prob_barplot_lung_h = prob_barplot_lung + ylab(NULL)
@@ -170,7 +169,7 @@ wrap_plots(prob_barplot_colon_v, prob_barplot_lung_v,
 
 
 # APC
-make_gene_barplot(boostdm, ratios, gene_of_interest = "APC", tissue_select = "colon", cell_probabilities = FALSE) +
+F4A = make_gene_barplot(boostdm, ratios, gene_of_interest = "APC", tissue_select = "colon", cell_probabilities = FALSE) +
   ggh4x::facet_grid2(driver ~ ., strip = strip_themed(background_y = elem_list_rect(fill = c("#C03830", "#707071")),
                                                       text_y = elem_list_text(colour = c("white"), face = "bold"))) +
   scale_y_continuous(breaks = extended_breaks(4)) +
@@ -180,12 +179,8 @@ make_gene_barplot(boostdm, ratios, gene_of_interest = "APC", tissue_select = "co
         legend.key.size = unit(0.8, "lines"), legend.background = element_blank())
 # make function, inputting the boostdm driver mutations, and the expected rates.
 # this will become the plot
-barplot_colon +
-  facet_grid(driver ~ .) +
-  scale_y_continuous(breaks = extended_breaks(4)) +
-  theme(legend.position = "inside", legend.position.inside = c(0.05, 0.8))
 
-barplot_colon +
+F3D = barplot_colon +
   ggh4x::facet_grid2(driver ~ ., strip = strip_themed(background_y = elem_list_rect(fill = c("#C03830", "#707071")),
                      text_y = elem_list_text(colour = c("white"), face = "bold"))) +
   scale_y_continuous(breaks = extended_breaks(4)) +
@@ -264,7 +259,7 @@ boostDM_ch = fread("processed_data/boostdm/boostdm_genie_cosmic/CH_boostDM_cance
 make_summary_barplots(boostdm = boostDM_ch, ratios = ratios, gene_of_interest = "DNMT3A",
                       cell_probabilities = FALSE, individual = FALSE,
                       older_individuals = TRUE)
-
+# check if easier to make a plot for DNMT3A plots
 
 # make dotplots with the individual variation:
 all_rates = merge_mutrisk_drivers(boostdm, ratios, gene_of_interest = "TP53", tissue_select = "colon", individual = "all")[[1]] |>
@@ -331,7 +326,7 @@ df_mean_muts |>
   theme(legend.position = "none") +
   labs(y = "number of cells with TP53 mutations", x = NULL)
 
-df_mean_muts |>
+F3A = df_mean_muts |>
   filter(category %in% c("normal", "non-smoker")) |>
   ggplot(aes(x = category, y = mle,  fill = tissue_category)) +
   geom_col() +
@@ -356,11 +351,21 @@ df_mean_muts = df_total_muts |>
   summarize(sd = stats::sd(mle),
             mle = mean(mle))
 
-df_mean_muts |>
+df_percentage = boxplot_df |> group_by(tissue, tissue_category, category, donor, driver) |>
+  summarize(mean_mle = mean(mle), .groups = "drop_last") |>
+  mutate(fraction_muts = mean_mle / sum(mean_mle)) |>
+  group_by(tissue,tissue_category,  category, driver) |>
+  summarize(fraction_muts = mean(fraction_muts)) |>
+  filter(driver == "driver" & category != "chemotherapy") |>
+  mutate(label = paste0("fraction driver\n",round(fraction_muts * 100,1 ), "%")) |>
+  ungroup()
+
+F3E = df_mean_muts |>
   ggplot(aes(x = category, y = mle,  fill = tissue_category)) +
   geom_col(alpha = 0.75) +
   geom_errorbar(aes(ymin = mle - sd, ymax = mle + sd), width = 0) +
   ggbeeswarm::geom_beeswarm(data = df_total_muts,  size = 1.3, cex = 2) +
+  geom_text(aes(label = label, y = I(0.01)), df_percentage, angle = 90, hjust = 0, vjust = 0.2)  +
   scale_fill_manual(values = tissue_category_colors) +
   scale_y_continuous(limits = c(0, NA), labels = label_comma(), expand = expansion(mult = c(0, 0.1))) +
   scale_alpha_manual(values = c(1, 0.5)) +
@@ -368,18 +373,19 @@ df_mean_muts |>
   theme_cowplot() +
   theme(legend.position = "none") +
   labs(y = "number of cells with TP53 driver mutations", x = NULL)
+F3E
 
-df_mean_muts |>
-  filter(category %in% c("normal", "non-smoker")) |>
-  ggplot(aes(x = category, y = mle,  fill = tissue_category)) +
-  geom_col() +
-  geom_errorbar(aes(ymin = mle - sd, ymax = mle + sd), width = 0) +
-  ggbeeswarm::geom_beeswarm(data = df_total_muts |> filter(category %in% c("normal", "non-smoker")),
-                            size = 1.3, cex = 2) +
-  scale_fill_manual(values = tissue_category_colors) +
-  scale_y_continuous(limits = c(0, NA), labels = label_comma(), expand = expansion(mult = c(0, 0.1))) +
-  scale_alpha_manual(values = c(1, 0.5)) +
-  facet_wrap(. ~ tissue, scale = "free", space = "free_x") +
-  theme_cowplot() +
-  theme(legend.position = "none") +
-  labs(y = "number of cells with TP53 driver mutations", x = NULL)
+# df_mean_muts |>
+#   filter(category %in% c("normal", "non-smoker")) |>
+#   ggplot(aes(x = category, y = mle,  fill = tissue_category)) +
+#   geom_col() +
+#   geom_errorbar(aes(ymin = mle - sd, ymax = mle + sd), width = 0) +
+#   ggbeeswarm::geom_beeswarm(data = df_total_muts |> filter(category %in% c("normal", "non-smoker")),
+#                             size = 1.3, cex = 2) +
+#   scale_fill_manual(values = tissue_category_colors) +
+#   scale_y_continuous(limits = c(0, NA), labels = label_comma(), expand = expansion(mult = c(0, 0.1))) +
+#   scale_alpha_manual(values = c(1, 0.5)) +
+#   facet_wrap(. ~ tissue, scale = "free", space = "free_x") +
+#   theme_cowplot() +
+#   theme(legend.position = "none") +
+#   labs(y = "number of cells with TP53 driver mutations", x = NULL)

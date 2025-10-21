@@ -96,7 +96,7 @@ F5E = ggplot(mutation_list |> filter(name %in% c("DNMT3A_R882H", "DNMT3A_drivers
   scale_fill_manual(values = blood_colors) +
   scale_color_manual(values = blood_colors) +
   theme_cowplot() +
-  labs(y = "number of cells/individual",
+  labs(y = "Fraction of individuals\nmeeting condition",
        x = "Age (years)",fill = NULL) +
   theme(legend.position = "none")
 F5E
@@ -158,12 +158,10 @@ F5F
 
 
 # make figure
-F5C = prep_plot(F5C,label = "C", t = 8, r = 8, l = 8, b = 8)
-F5D = prep_plot(F5D,label = "D", t = 8, r = 8, l = 8, b = 8)
-F5E = prep_plot(F5E,label = "E", t = 8, r = 8, l = 8, b = 8)
-F5F = prep_plot(F5F,label = "F", t = 8, r = 8, l = 8, b = 8)
-
-F5C + F5D + F5E + F5F
+F5B = prep_plot(F5C,label = "B", t = 8, r = 8, l = 8, b = 8)
+F5C = prep_plot(F5D,label = "C", t = 8, r = 8, l = 8, b = 8)
+F5D = prep_plot(F5E,label = "D", t = 8, r = 8, l = 8, b = 8)
+F5E = prep_plot(F5F,label = "E", t = 8, r = 8, l = 8, b = 8)
 
 # for the fitness effect: we need to consider that we can only model mutations with a specific fitness effect
 # perform two types of analyses:s
@@ -171,47 +169,15 @@ F5C + F5D + F5E + F5F
 # 2. with all DNMT3A variants. Check how we need to calculate the fitness. Probably taking the sum of all of the curves would be the best solution
 
 # also needed would be the list of all the variants in the Watson analysis reported to be mutated
+F5A = readRDS("processed_data/plots/F5B.rds")
+F5A = prep_plot(F5A, label = "A", t = 8, r = 8, l = 8, b = 8)
 
-# 1: R882H Plot:
-mutation_list_ci_prob = mutation_list_ci |>
-  mutate(cilow =get_prob_mutated_N( cilow / 2.5e4, 2.5e4),
-         mle =get_prob_mutated_N(mle / 1e5,  1e5),
-         cihigh =get_prob_mutated_N( cihigh / 1.3e6, 1.3e6))
-
-figure_4b = ggplot(mutation_list_ci_prob,
-                   aes(x = age, y = mle, fill = category)) +
-  geom_errorbar(aes(ymin = cilow, ymax = cihigh, color = category),
-                width = 0,
-                show.legend = FALSE) +
-  facet_wrap(. ~ name, scales = "free_y") +
-  geom_point(shape = 21, size = 2.4, color = "white", stroke = 0.3) +
-  scale_fill_manual(values = blood_colors) +
-  scale_color_manual(values = blood_colors) +
-  theme_cowplot() +
-  labs(y = "number of cells/individual",
-       x = "Age (years)",fill = NULL) +
-  theme(legend.position = "none")
-
-
-# get the 'weigthed' exposure terms
-# individual rates for driver mutations:
-DNMT3A_driver_list = split(DNMT3A_watson_drivers, DNMT3A_watson_drivers$aachange)
-DNMT3A_driver_list = DNMT3A_driver_list[c("R882H", "R882C")]
-name = names(DNMT3A_driver_list)[1]
-list_drivers = list()
-
-for (name in names(DNMT3A_driver_list)) {
-  muts = DNMT3A_driver_list[[name]]
-  list_drivers[[name]] = calc_exp_muts(expected_rates, muts, metadata, ratios, ncells)
-}
-
-expected_drivers = rbindlist(list_drivers, idcol = 'aachange')
-
-expansion_df = data.frame(percent = c(18.7, 16.0, 15.8,15, 14.8, 14.1, 12.9, 12.3, 12.1, 12, 11.9, 11.2),
-                            aachange = watson_variants) |>
-  mutate(s = 1 + percent / 100,
-         age_expansion = log(2000) / log(s))
-
-
-figure_5 =
+library(patchwork)
+library(ggpubr)
+top = ggarrange(plotlist = list(F5A, F5B, F5C), nrow = 1, widths = c(2,1,1))
+bottom = ggarrange(plotlist = list(F5D, F5E), nrow = 1, widths = c(2,1))
+library(gridExtra)
+fig <- arrangeGrob(top, bottom)
+plot(fig)
+ggsave("manuscript/Figure_5/Figure_5.png", width = 15, height = 9)
 

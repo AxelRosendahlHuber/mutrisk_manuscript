@@ -154,7 +154,6 @@ APC_double_mut_plot = apc_double_driver |>
 
 figure2BC = APC_single_mut_plot + APC_double_mut_plot
 figure2BC
-
 ggsave("plots/colon/Figure2BC.png", figure2BC, width = 8.5, height = 4)
 
 # make a dataframe with the relative mutation rates for all the different changes:
