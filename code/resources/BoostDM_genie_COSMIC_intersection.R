@@ -79,19 +79,6 @@ combine_boostdm_cancer = function(cosmic_select, genie_select, boostdm_muts) {
   return(boostdm_cancer)
 }
 
-upset_boostdm_cancer_cohorts = function(boostdm_cancer) {
-  mat = boostdm_cancer |> select("cosmic_present", "genie_present", "boostDM_class")*1 # multiply by 1 to convert to numeric
-  plot = upset(mat, queries = list(list(query = intersects, params = list("cosmic_present", "boostDM_class"), color = "darkgreen", active = T),
-                            list(query = intersects, params = list("genie_present", "boostDM_class"), color = "darkgreen", active = T),
-                            list(query = intersects, params = list("cosmic_present", "genie_present", "boostDM_class"), color = "darkgreen", active = T)))
-  ggplotify::as.ggplot(plot)
-}
-
-upset_boostdm_cancer_present = function(boostdm_cancer) {
-  mat = boostdm_cancer |> select("cancer_present", "boostDM_class")*1 # multiply by 1 to convert to numeric
-  plot = upset(mat, queries = list(list(query = intersects, params = list("boostDM_class", "cancer_present"), color = "darkgreen", active = T)))
-  ggplotify::as.ggplot(plot)
-}
 
 intersect_boostDM_cancer = function(boostdm_cohort, cosmic_cohort, genie_cohort) {
 
@@ -109,12 +96,50 @@ intersect_boostDM_cancer = function(boostdm_cohort, cosmic_cohort, genie_cohort)
   rbindlist(intersect_gene_list)
 }
 
+# upset_boostdm_cancer_cohorts = function(boostdm_cancer) {
+#   mat = boostdm_cancer |> select("cosmic_present", "genie_present", "boostDM_class")*1 # multiply by 1 to convert to numeric
+#   plot = upset(mat, queries = list(list(query = intersects, params = list("cosmic_present", "boostDM_class"), color = "darkgreen", active = T),
+#                             list(query = intersects, params = list("genie_present", "boostDM_class"), color = "darkgreen", active = T),
+#                             list(query = intersects, params = list("cosmic_present", "genie_present", "boostDM_class"), color = "darkgreen", active = T)))
+#   ggplotify::as.ggplot(plot)
+# }
+
+# upset_boostdm_cancer_present = function(boostdm_cancer) {
+#   mat = boostdm_cancer |> select("cancer_present", "boostDM_class")*1 # multiply by 1 to convert to numeric
+#   plot = upset(mat, queries = list(list(query = intersects, params = list("boostDM_class", "cancer_present"), color = "darkgreen", active = T)))
+#   ggplotify::as.ggplot(plot)
+# }
+
+
+euler_boostdm_cancer = function(boostdm_cancer, title) {
+ mat = boostdm_cancer |> select("cosmic_present", "genie_present", "boostDM_class")*1 # multiply by 1 to convert to numeric
+ colnames(mat) = c("Present in\nCosmic", "Mutation in GENIE", "Mutation is\nBoostDM Driver")
+ set = eulerr::venn(mat)
+ plot(set, main = title)
+}
+
+euler_boostdm_cancer_present = function(boostdm_cancer, title) {
+  mat = boostdm_cancer |> select("cancer_present", "boostDM_class")*1 # multiply by 1 to convert to numeric
+  colnames(mat) = c("Present in\nCosmic/GENIE", "Mutation is\nBoostDM Driver")
+  set = eulerr::venn(mat)
+  ggplotify::as.ggplot(plot(set, main = title))
+}
+
 
 # first get the observed mutations for the single samples. Merge on the change on the amino acid level
 tissue = "pancancer"
 bDM_cancer_intersect = intersect_boostDM_cancer(boostdm_cohort = boostdm_hg19[cohort == "CANCER"],
                                                 cosmic_cohort = COSMIC_cancer_type,  genie_cohort = genie_cancer_type)
 fwrite(bDM_cancer_intersect, paste0("processed_data/boostdm/boostdm_genie_cosmic/", tissue, "_boostDM_intersect.txt.gz"))
+
+# make supplementary figure S3
+euler_boostdm_cancer_present(bDM_cancer_intersect |> filter(gene_name == "TP53"),
+                                                    title = "TP53 pancancer")
+
+euler_cohort_level = euler_boostdm_cancer(bDM_cancer_intersect |> filter(gene_name == "TP53"),
+                     title = "TP53 pancancer")
+ggsave("manuscript/Supplementary_Figures/Figure_S4/Figure_S4.png", euler_cohort_level, width = 8, height = 6)
+
 
 ##### Colon ######
 tissue = "colon"

@@ -30,7 +30,6 @@ save_plots = function(plot_list, path, name, width = 13, height = 8) {
            plot_list[[plot_name]], width = width, height = height, bg = "white")
 }
 
-
 # function to format the cell number in nice, descriptive manner
 format_bignum = function(n){
   case_when(
@@ -483,6 +482,26 @@ plot_driver_incidence = function(mutation_list, drivers, name, plot_rows = 2, sp
   }
 
   pl = list()
+
+  pl[["line_plot"]] = ggplot(mut_summary, aes(x = x, y = mean_mutrate)) +
+    geom_line(aes(color = category_tissue), linewidth = 1) +
+    ggrepel::geom_text_repel(data = driver_summary, aes(label = driver_name), force = 3, size = 3,
+                             min.segment.length = 0, nudge_y = driver_summary$mean_mutrate * 1.3,) +
+    facet_nested_wrap(. ~ factor(tissue, c("colon", "lung", "blood")) + category,
+                      nrow = plot_rows, nest_line = element_line(linetype = 1),
+                      axes = 'all', scales = "free_y") +
+    cowplot::theme_cowplot() +
+    scale_color_manual(values = tissue_category_colors) +
+    scale_x_continuous(labels = label_percent()) +
+    theme(legend.position = "none",
+          panel.spacing = unit(0.2,"lines"),
+          strip.background = element_rect(color = "white", fill = "white")) +
+    labs( x = 'percentile of exonic mutations\nOrdered from high to low',
+          y  = 'expected of cells with mutation',
+          title = "Distribution mutated positions across the exome")
+
+
+
 
   # measurements of unevenness barplot decile:
   mut_deciles = mut_summary |>

@@ -51,7 +51,8 @@ vaf_estimates = input_muts |>
   summarize(vaf_estimate = estimate_vaf(VAF))
 # update the metadata file with the sensitiivity data for the different individuals
 metadata = metadata |>
-  left_join(vaf_estimates) |>
+  full_join(vaf_estimates) |>
+  filter(!is.na(category)) |>
   mutate(sensitivity = get_sensitivity(coverage, vaf_estimate, minalt = 2),
          category = factor(category, levels = c("non-smoker", "ex-smoker", "smoker"))) |>
   select(sampleID, category, donor, age, sensitivity, coverage)
@@ -62,7 +63,6 @@ select_sigs = c("SBS1", "SBS4", "SBS5", "SBS2", "SBS13", "SBS92", "SBS16") # che
 cell_muts = inner_join(input_muts, metadata) |>
   dplyr::select(sampleID, chr, pos, ref, alt, category, donor) |>
   filter(nchar(ref) == 1 & nchar(alt) == 1)
-
 
 list_results = list()
 for (i in unique(metadata$category)) {
@@ -97,7 +97,6 @@ for (i in unique(metadata$category)) {
 }
 
 # summarize the results from the tissue-specific analysis (see following code from and adapt:)
-# summarize the mutation rate
 sig_rate_files = list.files(paste0("processed_data/", tissue), pattern = 'sig_rate_per_sample',
                             full.names = TRUE, recursive = TRUE)
 rates = lapply(sig_rate_files, fread)
@@ -133,3 +132,4 @@ ratios = lapply(dnds_files, \(x) {
   rbindlist(idcol = "category") |>
   mutate(category = factor(category, levels = levels(metadata$category)))
 fwrite(ratios, file = paste0("processed_data/", tissue, "/", tissue, "_mut_ratios.tsv.gz"))
+

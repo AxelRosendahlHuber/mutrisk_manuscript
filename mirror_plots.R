@@ -21,10 +21,10 @@ names(metadata_files) = str_split_i(metadata_files, "\\/", 2)
 metadata = lapply(metadata_files, \(x) fread(x)[,c("sampleID", "category", "age", "donor")]) |>
   rbindlist(idcol = "tissue")
 
+
 # Load gene_of_interest boostdm
 boostdm = fread("processed_data/boostdm/boostdm_genie_cosmic/pancancer_boostDM_intersect.txt.gz") |>
   mutate(driver = ifelse(driver == TRUE, "driver", "non-driver"))# change names for overview
-
 
 # load the mutation rates
 expected_rate_list = list()
@@ -113,7 +113,7 @@ make_gene_barplot = function(boostdm, ratios, gene_of_interest, tissue_select = 
   y_label = "number of cells with mutation"
   if (cell_probabilities == TRUE) {
     ncells_select = 1
-    y_label = expression("probability of mutation ("*x10^-6*")")
+    y_label = expression("probability of mutation\n per cell("*x10^-6*")")
   }
 
   if (max(expected_gene_muts$position, na.rm = TRUE) > 2000) {
@@ -142,17 +142,20 @@ make_gene_barplot = function(boostdm, ratios, gene_of_interest, tissue_select = 
   pl
 }
 
-make_gene_barplot(boostdm, ratios, gene_of_interest = "KRAS", tissue_select = "colon")
+barplot_lung = make_gene_barplot(boostdm, ratios, gene_of_interest = "TP53", tissue_select = "lung", category_select = "non-smoker", cell_probabilities = FALSE)
+barplot_blood = make_gene_barplot(boostdm, ratios, gene_of_interest = "TP53", tissue_select = "blood", cell_probabilities = FALSE)
+barplot_colon = make_gene_barplot(boostdm, ratios, gene_of_interest = "TP53", tissue_select = "colon", cell_probabilities = FALSE)
+F3B = wrap_plots(barplot_colon, barplot_lung, barplot_blood, ncol = 1, guides = "collect")
 
-barplot_lung = make_gene_barplot(boostdm, ratios, gene_of_interest = "TP53", tissue_select = "lung", category_select = "non-smoker") + ggtitle(NULL)
-barplot_blood = make_gene_barplot(boostdm, ratios, gene_of_interest = "TP53", tissue_select = "blood") + ggtitle(NULL) + ylab(NULL)
-barplot_colon = make_gene_barplot(boostdm, ratios, gene_of_interest = "TP53", tissue_select = "colon") +   ylab(NULL)
-wrap_plots(barplot_colon, barplot_lung, barplot_blood, ncol = 1, guides = "collect")
 
-prob_barplot_lung = make_gene_barplot(boostdm, ratios, gene_of_interest = "TP53", tissue_select = "lung", category_select = "non-smoker", cell_probabilities = FALSE)
-prob_barplot_blood = make_gene_barplot(boostdm, ratios, gene_of_interest = "TP53", tissue_select = "blood", cell_probabilities = FALSE)
-prob_barplot_colon = make_gene_barplot(boostdm, ratios, gene_of_interest = "TP53", tissue_select = "colon", cell_probabilities = FALSE)
-F3B = wrap_plots(prob_barplot_colon, prob_barplot_lung, prob_barplot_blood, ncol = 1, guides = "collect")
+prob_barplot_lung = make_gene_barplot(boostdm, ratios, gene_of_interest = "TP53", tissue_select = "lung", category_select = "non-smoker",
+                                      individual = "PD34215",
+                                      cell_probabilities = TRUE) +  ggtitle("TP53")
+prob_barplot_blood = make_gene_barplot(boostdm, ratios, gene_of_interest = "TP53", tissue_select = "blood", cell_probabilities = TRUE) + ggtitle(NULL) + ylab(NULL)
+prob_barplot_colon = make_gene_barplot(boostdm, ratios, gene_of_interest = "TP53", tissue_select = "colon", cell_probabilities = TRUE) +   ylab(NULL)
+wrap_plots(prob_barplot_colon, prob_barplot_lung, prob_barplot_blood, ncol = 3, guides = "collect")
+
+
 
 # horizontal plot
 prob_barplot_lung_h = prob_barplot_lung + ylab(NULL)
