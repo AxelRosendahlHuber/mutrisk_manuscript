@@ -115,6 +115,7 @@ mrates_files = mrates_files[!grepl("sig", mrates_files)] # exclude the signature
 rates = lapply(mrates_files, fread)
 names(rates) = gsub("_patient_rates.tsv.gz", "", basename(mrates_files))
 expected_rates = rbindlist(rates) |>
+  select(-sensitivity, -coverage) |>
   mutate(category = factor(category, levels = levels(metadata$category)))  |>
   inner_join(metadata) |>
   mutate(across(c(mle, cilow, cihigh), ~ . /sensitivity)) |> # correct for sensitivity

@@ -311,6 +311,7 @@ for (gene_oi in genes_boostdm) {
 }
 dev.off()
 
+
 # make specific plots for specific positions:
 # Blood make specific mirror genes for specific sites:
 boostdm_ch = fread("processed_data/boostdm/boostdm_genie_cosmic/CH_boostDM_cancer.txt.gz")
@@ -365,7 +366,7 @@ df_point = df_mirror |>
          mrate = ifelse(tissue_category == "Expected mutrate\nblood", 0-mrate, mrate)) |>
   ungroup()
 
-F5B = ggplot(df_point, aes(x = position, y = mrate)) +
+F5A = ggplot(df_point, aes(x = position, y = mrate)) +
   geom_point(color = "white") +
   geom_col(data = df_mirror, aes(fill = type)) +
   geom_text(data = data.frame(tissue_category = factor("UKBiobank CH"), position = 50, mrate = 1500, label = "TP53"),
@@ -378,7 +379,7 @@ F5B = ggplot(df_point, aes(x = position, y = mrate)) +
   labs(y = "Number expected/\nobserved muts",  x = "AA position") +
   scale_y_continuous(expand=expansion(mult=c(0,0)), breaks = scales::breaks_extended(n = 3))
 
-saveRDS(F5B, "processed_data/plots/F5B.rds")
+saveRDS(F5A, "processed_data/plots/F5A.rds")
 
 
 

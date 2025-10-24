@@ -21,7 +21,6 @@ names(metadata_files) = str_split_i(metadata_files, "\\/", 2)
 metadata = lapply(metadata_files, \(x) fread(x)[,c("sampleID", "category", "age", "donor")]) |>
   rbindlist(idcol = "tissue")
 
-
 # Load gene_of_interest boostdm
 boostdm = fread("processed_data/boostdm/boostdm_genie_cosmic/pancancer_boostDM_intersect.txt.gz") |>
   mutate(driver = ifelse(driver == TRUE, "driver", "non-driver"))# change names for overview
@@ -29,6 +28,7 @@ boostdm = fread("processed_data/boostdm/boostdm_genie_cosmic/pancancer_boostDM_i
 # load the mutation rates
 expected_rate_list = list()
 ratio_list = list()
+
 for (tissue in c("colon", "blood", "lung")) {
   expected_rate_list[[tissue]] = fread(paste0("processed_data/", tissue, "/", tissue, "_expected_rates.tsv.gz"))
   ratio_list[[tissue]] = fread(paste0("processed_data/", tissue, "/", tissue, "_mut_ratios.tsv.gz"))
@@ -39,7 +39,7 @@ ratios = rbindlist(ratio_list, idcol = "tissue", use.names = TRUE)
 # filters
 gene_of_interest = "TP53"
 
-merge_mutrisk_drivers = function(boostdm, ratios, gene_of_interest, tissue_select = "colon",
+merge_mutrisk_drivers = function(boostdm, ratios, gene_of_interest, tissue_select = "colon", tissue_name,
                                  category_select = "normal", cell_probabilities = FALSE,
                                  individual = FALSE, older_individuals = TRUE) {
 
@@ -77,7 +77,7 @@ merge_mutrisk_drivers = function(boostdm, ratios, gene_of_interest, tissue_selec
     individuals = older_individuals |>
       select(donor, age) |> distinct()
 
-    label = paste(tissue_select,  category_select, "all donors, average age:", format(mean(individuals$age), digits = 3))
+    label = paste(tissue_name, "- average age:", format(mean(individuals$age), digits = 3))
 
 
   } else if (individual %in% unique(mutated_rates$donor)) {
@@ -100,20 +100,23 @@ merge_mutrisk_drivers = function(boostdm, ratios, gene_of_interest, tissue_selec
 }
 
 
-make_gene_barplot = function(boostdm, ratios, gene_of_interest, tissue_select = "colon",
+make_gene_barplot = function(boostdm, ratios, gene_of_interest,
+                             tissue_select = "colon", tissue_name = NULL,
                              category_select = "normal",
                              cell_probabilities = FALSE, individual = FALSE, older_individuals = TRUE) {
 
-  mr_drivers = merge_mutrisk_drivers(boostdm, ratios, gene_of_interest, tissue_select, category_select, cell_probabilities,
+  if (is.null(tissue_name)) {tissue_name = tissue_select}
+
+  mr_drivers = merge_mutrisk_drivers(boostdm, ratios, gene_of_interest, tissue_select, tissue_name, category_select, cell_probabilities,
                         individual, older_individuals)
 
   expected_gene_muts = mr_drivers$expected_gene_muts
   label = mr_drivers$label
 
-  y_label = "number of cells with mutation"
+  y_label = "Number of cells with mutation"
   if (cell_probabilities == TRUE) {
     ncells_select = 1
-    y_label = expression("probability of mutation\n per cell("*x10^-6*")")
+    y_label = "Probability of mutation\n per cell(x10⁻⁶)"
   }
 
   if (max(expected_gene_muts$position, na.rm = TRUE) > 2000) {
@@ -142,18 +145,37 @@ make_gene_barplot = function(boostdm, ratios, gene_of_interest, tissue_select = 
   pl
 }
 
-barplot_lung = make_gene_barplot(boostdm, ratios, gene_of_interest = "TP53", tissue_select = "lung", category_select = "non-smoker", cell_probabilities = FALSE)
+
+# make the probabilities for Figure 1B
+prob_barplot_lung = make_gene_barplot(boostdm, ratios, gene_of_interest = "TP53", tissue_select = "lung", category_select = "non-smoker",
+                                      individual = "PD34215",cell_probabilities = TRUE) + labs(title = "TP53", subtitle = NULL, y = NULL)
+prob_barplot_blood = make_gene_barplot(boostdm, ratios, gene_of_interest = "TP53", tissue_select = "blood",
+                                       individual = "KX008", cell_probabilities = TRUE) + labs(title = "TP53", subtitle = NULL, y = NULL)
+prob_barplot_colon = make_gene_barplot(boostdm, ratios, gene_of_interest = "TP53", tissue_select = "colon",
+                                       individual = "O340", cell_probabilities = TRUE) + labs(title = "TP53", subtitle = NULL)
+F1B = wrap_plots(prob_barplot_colon, prob_barplot_lung, prob_barplot_blood, ncol = 3, guides = "collect")
+prep_plot(F1B, label = "B")
+
+
+barplot_lung = make_gene_barplot(boostdm, ratios, gene_of_interest = "TP53", tissue_select = "lung", tissue_name = "Lung"
+                                 category_select = "non-smoker", cell_probabilities = FALSE) +
+  labs(subtitle = "Colon - average age: 63.6")
 barplot_blood = make_gene_barplot(boostdm, ratios, gene_of_interest = "TP53", tissue_select = "blood", cell_probabilities = FALSE)
 barplot_colon = make_gene_barplot(boostdm, ratios, gene_of_interest = "TP53", tissue_select = "colon", cell_probabilities = FALSE)
 F3B = wrap_plots(barplot_colon, barplot_lung, barplot_blood, ncol = 1, guides = "collect")
 
 
-prob_barplot_lung = make_gene_barplot(boostdm, ratios, gene_of_interest = "TP53", tissue_select = "lung", category_select = "non-smoker",
-                                      individual = "PD34215",
-                                      cell_probabilities = TRUE) +  ggtitle("TP53")
-prob_barplot_blood = make_gene_barplot(boostdm, ratios, gene_of_interest = "TP53", tissue_select = "blood", cell_probabilities = TRUE) + ggtitle(NULL) + ylab(NULL)
-prob_barplot_colon = make_gene_barplot(boostdm, ratios, gene_of_interest = "TP53", tissue_select = "colon", cell_probabilities = TRUE) +   ylab(NULL)
-wrap_plots(prob_barplot_colon, prob_barplot_lung, prob_barplot_blood, ncol = 3, guides = "collect")
+
+# barplot APC plot
+POLD1_mutation = make_gene_barplot(boostdm, ratios, gene_of_interest = "TP53",
+                                 tissue_select = "colon", category_select = "POLD1", cell_probabilities = FALSE) +
+  ggh4x::facet_grid2(driver ~ ., strip = strip_themed(background_y = elem_list_rect(fill = c("#C03830", "#707071")),
+                                                      text_y = elem_list_text(colour = c("white"), face = "bold")))
+
+colon_normal = make_gene_barplot(boostdm, ratios, gene_of_interest = "TP53",
+                                 tissue_select = "colon", category_select = "normal", cell_probabilities = FALSE) +
+  ggh4x::facet_grid2(driver ~ ., strip = strip_themed(background_y = elem_list_rect(fill = c("#C03830", "#707071")),
+                                                      text_y = elem_list_text(colour = c("white"), face = "bold")))
 
 
 
@@ -180,9 +202,9 @@ F4A = make_gene_barplot(boostdm, ratios, gene_of_interest = "APC", tissue_select
         legend.text = element_text(size = rel(0.8)),
         legend.title = element_text(size = rel(0.8)),
         legend.key.size = unit(0.8, "lines"), legend.background = element_blank())
+
 # make function, inputting the boostdm driver mutations, and the expected rates.
 # this will become the plot
-
 F3D = barplot_colon +
   ggh4x::facet_grid2(driver ~ ., strip = strip_themed(background_y = elem_list_rect(fill = c("#C03830", "#707071")),
                      text_y = elem_list_text(colour = c("white"), face = "bold"))) +

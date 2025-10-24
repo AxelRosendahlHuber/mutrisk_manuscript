@@ -8,7 +8,7 @@ library(mutrisk)
 source("code/functions/analysis_variables.R")
 
 # load metadata
-md_files = list.files("processed_data/", recursive = TRUE, pattern = "metadata",
+md_files = list.files("processed_data/", recursive = TRUE, pattern = "_metadata",
                       full.names = TRUE)
 names(md_files) = gsub("_.*", "", basename(md_files))
 metadata = lapply(md_files, fread) |>
@@ -33,9 +33,9 @@ save_plots = function(plot_list, path, name, width = 13, height = 8) {
 # function to format the cell number in nice, descriptive manner
 format_bignum = function(n){
   case_when(
-    n >= 1e9 ~ paste("cells:", round(n/1e9, 1), 'billion'),
-    n >= 1e6 ~ paste("cells:", round(n/1e6, 1), 'million'),
-    n >= 1e3 ~ paste("cells:",format(round(n), big.mark = ",", scientific = FALSE)),
+    n >= 1e9 ~ paste(round(n/1e9, 1), 'billion cells'),
+    n >= 1e6 ~ paste(round(n/1e6, 1), 'million cells'),
+    n >= 1e3 ~ paste(format(round(n), big.mark = ",", scientific = FALSE), "cells"),
     TRUE ~ as.character(n))
 }
 
@@ -90,7 +90,8 @@ plot_prob_curve = function(probability_rates, analysis_name, groupby, nrow = 2) 
     cowplot::theme_cowplot() +
     cowplot::panel_border() +
     scale_color_manual(values = tissue_category_colors) +
-    labs(x = "Number of cells in tissue", y = "Proportion of SNVs\nin at least one cell",
+    labs(x = "Number of cells in tissue",
+         y = "Fraction of all possible mutations\npresent in at least one cell",
          title = analysis_name, subtitle = paste("grouped by:", groupby)) +
     theme(legend.position = "none",
           panel.spacing = unit(0.2,"lines"),
@@ -105,30 +106,37 @@ plot_prob_curve_ci = function(probability_rates, analysis_name, groupby, ncell_d
   tissue_ncells_plot = rates |>
     select(tissue, category, color_id) |> distinct() |>
     left_join(ncell_df) |>
-    mutate(label = format_bignum(mid_estimate),
-           label = ifelse(mid_estimate == 1e5, paste0(label, "\nCI:~25000-1.3 million cells"), label))
+    mutate(label = format_bignum(mid_estimate))
 
-  ggplot(rates, aes(color = color_id)) +
+  blood_df = data.frame(tissue = factor("blood", levels = levels(rates$tissue)),
+                        x_coord = as.numeric(ncell_df[c("high_estimate", "low_estimate")][3,]),
+                        label = c("25,000", "1.3 million"))
+
+  ggplot(rates) +
     geom_rect(data = tissue_ncells_plot,
               aes(xmin = low_estimate, xmax = high_estimate, ymin = -Inf, ymax = 1),
               color = "white", alpha = 0.5) +
-    geom_line(aes(x = ncells, y = prob, group = groupID)) +
+    geom_line(aes(x = ncells, y = prob, group = groupID, color = color_id)) +
     geom_segment(data = tissue_ncells_plot, aes(x = mid_estimate, xend =  mid_estimate, y = 0, yend = 1),
                  linetype = "dashed", color = "black") +
-    ggpp::geom_text_npc(data = tissue_ncells_plot, aes(npcx = 0.5, npcy = 0.975, label = label),
-              color = "black", hjust = 0.5) +
-    facet_nested_wrap(. ~ tissue,
-                      nrow = nrow, nest_line = element_line(linetype = 1), axes = 'all', remove_labels = "y") +
+    geomtextpath::geom_textline(data = tissue_ncells_plot, aes(x = mid_estimate, label = label, y = 0.5), hjust = 0.5, vjust = 1.2, angle = 90,
+                                color = c("black", "black", "white"), size = 5) +
+    geom_text(data = blood_df, aes(x = x_coord, y = 0.5, label = label), color = "black", angle = 90, vjust = c(1.1, -.1)) +
+    facet_nested_wrap(. ~ tissue,nrow = nrow, nest_line = element_line(linetype = 1), axes = 'all', remove_labels = "y",
+                      labeller = labeller(tissue = c(colon = "Colon", lung = "Lung", blood = "Blood"))) +
     cowplot::theme_cowplot() +
     scale_color_manual(values = tissue_category_colors) +
-    scale_y_continuous(expand = expansion(mult = c(0, 0.15)), breaks = extended_breaks(3)) +
+    scale_y_continuous(expand = expansion(mult = c(0, NA)), breaks = extended_breaks(3)) +
     scale_x_log10(guide = "axis_logticks", labels = scales::label_log(), expand = expansion(mult = 0.1, 0.15)) +
-    labs(x = "Number of cells in tissue", y = "Proportion of SNVs\nin at least one cell") +
+    labs(x = "Number of cells in tissue",
+         y = "Fraction of all possible mutations\npresent in at least one cell") +
     theme(legend.position = "none",
           panel.spacing = unit(0.2,"lines"),
           strip.background = element_blank()) +
     coord_cartesian(clip = "off")
 }
+
+
 
 # saturation vs age functions:
 # preprocessing function for the saturation function
@@ -160,8 +168,8 @@ plot_saturation_age = function(intersects_ci, analysis_name) {
     cowplot::theme_cowplot() +
     scale_fill_manual(values = tissue_category_colors) +
     theme(axis.text.x = element_text(vjust = 1, hjust = 1)) +
-    labs(x = NULL, y = "Proportion of SNVs\nin at least one cell",
-         title = analysis_name, subtitle = "probability vs. age")
+    labs(x = NULL,
+         y = "Fraction of all possible mutations\npresent in at least one cell")
 }
 
 # function to code the age vs. saturation as a pointrange plot with confidence interval of the mutation rate
@@ -332,11 +340,11 @@ analyze_probability = function(gene_counts, analysis_name, groupby = "donor",
 
   if (filter_normal == TRUE) {
     nrow = 1
+    plot_list[["plot_saturation_curve_ci"]] = plot_prob_curve_ci(probability_rates = probability_rates, analysis_name, groupby, ncell_df = tissue_ncells_ci, nrow = nrow)
   } else { nrow = 2}
 
   plot_list[["plot_saturation_curve"]] = plot_prob_curve(probability_rates = probability_rates, analysis_name, groupby,nrow = nrow)
-  plot_list[["plot_saturation_curve_ci"]] = plot_prob_curve_ci(probability_rates = probability_rates, analysis_name, groupby, ncell_df = tissue_ncells_ci, nrow = nrow)
-  plot_list[["plot_saturation_curve_ci_wide"]] = plot_prob_curve_ci(probability_rates = probability_rates, analysis_name, groupby, ncell_df = tissue_ncells_ci_wide, nrow = nrow)
+  #plot_list[["plot_saturation_curve_ci_wide"]] = plot_prob_curve_ci(probability_rates = probability_rates, analysis_name, groupby, ncell_df = tissue_ncells_ci_wide, nrow = nrow)
   plot_list[["plot_probabilites_normal_colon"]] = plot_prob_curve(probability_rates |> filter(tissue == "colon" & category == "normal"), analysis_name, groupby, nrow = 1) +
     labs(subtitle = NULL)
 
@@ -448,7 +456,6 @@ names(driver_list) = driver_names
 drivers = rbindlist(driver_list, idcol = "driver_name")
 
 # TODO: Change the 'x' column
-
 plot_driver_incidence = function(mutation_list, drivers, name, plot_rows = 2, specific_individuals = FALSE) {
 
   mutation_list$driver_name = NA
@@ -483,10 +490,10 @@ plot_driver_incidence = function(mutation_list, drivers, name, plot_rows = 2, sp
 
   pl = list()
 
-  pl[["line_plot"]] = ggplot(mut_summary, aes(x = x, y = mean_mutrate)) +
+  pl[["line_plot"]] = ggplot(mut_summary, aes(x = x, y = mutated_rate)) +
     geom_line(aes(color = category_tissue), linewidth = 1) +
     ggrepel::geom_text_repel(data = driver_summary, aes(label = driver_name), force = 3, size = 3,
-                             min.segment.length = 0, nudge_y = driver_summary$mean_mutrate * 1.3,) +
+                             min.segment.length = 0, nudge_y = driver_summary$mutated_rate * 1.3,) +
     facet_nested_wrap(. ~ factor(tissue, c("colon", "lung", "blood")) + category,
                       nrow = plot_rows, nest_line = element_line(linetype = 1),
                       axes = 'all', scales = "free_y") +
@@ -496,12 +503,8 @@ plot_driver_incidence = function(mutation_list, drivers, name, plot_rows = 2, sp
     theme(legend.position = "none",
           panel.spacing = unit(0.2,"lines"),
           strip.background = element_rect(color = "white", fill = "white")) +
-    labs( x = 'percentile of exonic mutations\nOrdered from high to low',
-          y  = 'expected of cells with mutation',
-          title = "Distribution mutated positions across the exome")
-
-
-
+    labs( x = 'All possible single nucleotide variants (SNVs) in the exome sorted by mutation probability',
+          y  = 'Number of cells with mutation')
 
   # measurements of unevenness barplot decile:
   mut_deciles = mut_summary |>
@@ -555,13 +558,13 @@ plot_driver_incidence = function(mutation_list, drivers, name, plot_rows = 2, sp
                              aes(label = percentage_label, y = mean_mutrate), vjust = -0.2, nudge_x = -0.12) +
     ggpubr::geom_bracket(data = mut_percent_50, aes(xmin = 0, xmax = 0.5,
                                                     y.position = ymax * 0.15, label = label)) +
-    ggh4x::facet_nested_wrap(. ~ tissue, nrow = plot_rows, scale = "free", nest_line = element_line(linetype = 1)) +
+    ggh4x::facet_nested_wrap(. ~ tissue, nrow = plot_rows, scales = "free", nest_line = element_line(linetype = 1)) +
     scale_fill_manual(values = tissue_category_colors) +
     scale_y_continuous(expand = expansion(mult = c(0, 0.1)), breaks = extended_breaks(4),
                        labels = function(x) x * 1e6) +
     scale_x_continuous(breaks = c(0, 0.5, 1), labels = label_percent()) +
-    labs(x = "exome SNV sites\nsorted by mutation probability",
-         y = expression("SNV probability/cell ("*x10^-6*")")) +
+    labs(x = "All possible single nucleotide variants (SNVs) in the exome sorted by mutation probability\n(in percentiles)",
+         y = "Probability of mutation\nper cell (x10⁻⁶)") +
     cowplot::theme_cowplot() +
     coord_cartesian(clip = "off") +
     theme(legend.position = "none",
@@ -645,7 +648,7 @@ plot_driver_incidence = function(mutation_list, drivers, name, plot_rows = 2, sp
       scale_color_manual(values = tissue_basic_colors_plot) +
       scale_x_continuous(labels = label_percent(), expand = expansion(mult = c(0, 0)), limits = c(NA,1)) +
       scale_y_continuous(expand = expansion(mult = c(0.0, 0)), limits = c(NA,1)) +
-      labs(x = "exome SNV sites\nsorted by mutation probability",
+      labs(x = "Exome SNVs sorted by mutation\nprobability",
            y = 'Cumulative share of mutations', color = NULL) +
       cowplot::theme_cowplot() +
       theme(legend.position = "inside", legend.position.inside = c(0.05, 0.83))
@@ -685,27 +688,29 @@ figure_1C = prep_plot(plot_list_normal_individuals$barplot_percent_probability, 
 figure_1D = prep_plot(plot_list_normal$lorenz_plot, label = "D")
 
 figure_1 = figure_1C + figure_1D +
-  plot_layout(widths = c(2.5, 1))
+  plot_layout(widths = c(2.5, 1), )
 figure_1
 
-figure_2B = prep_plot(plot_list_normal$barplot_percent_ncells, label = "B")
-figure_2C = prep_plot(exome_analysis_normal$plot_list$plot_saturation_curve_ci, label = "C")
 
-figure_2D = exome_analysis_normal$plot_list$plot_saturation_age +
+# Figure 2:
+figure_2A = prep_plot(exome_analysis_normal$plot_list$plot_saturation_curve_ci, label = "A")
+
+figure_2C = exome_analysis_normal$plot_list$plot_saturation_age +
   theme(legend.position = "inside", legend.position.inside = c(0.75, 0.5)) +
   labs(fill = NULL, title = NULL, subtitle = NULL, x = 'Age (years)') +
   scale_fill_manual(labels = c("blood", "colon", "lung"), values = tissue_category_colors)
-figure_2D = prep_plot(figure_2D, label = "D")
+figure_2C = prep_plot(figure_2C, label = "C")
+figure_2D = prep_plot(plot_list_normal$line_plot, label = "D")
 
-figure_2_bottom =  figure_2C + figure_2D +
-  plot_layout(widths = c(2.2, 1))
-figure_2 = figure_2B / figure_2_bottom
+figure_2_middle =  plot_spacer() + figure_2C +
+  plot_layout(widths = c(1.5, 1))
+figure_2 = figure_2A / figure_2_middle / figure_2D
 
 # save figures:
-ggsave("manuscript/Figure_1/figure_1CD.png", figure_1, width = 15, height = 4.5)
-ggsave("manuscript/Figure_2/figure_2.png", figure_2, width = 15, height = 9)
+ggsave("manuscript/Figure_1/figure_1CD.png", figure_1, width = 16, height = 5)
+ggsave("manuscript/Figure_2/figure_2.png", figure_2, width = 14, height = 14)
 
-# exploration of mutation distribution plots for TP53 driver mutations:
+  # exploration of mutation distribution plots for TP53 driver mutations:
 TP53_plots = plot_driver_incidence(mutation_list = TP53_analysis$result_plot_df,
                                    drivers = drivers[grepl("TP53", driver_name)],
                                    name = "TP53")

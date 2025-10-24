@@ -97,7 +97,7 @@ metadata = fread(paste0("processed_data/", tissue, "/", tissue, "_metadata.tsv")
 ncells = tissue_ncells_ci$mid_estimate[1]
 expected_rates = fread(paste0("processed_data/", tissue, "/", tissue, "_expected_rates.tsv.gz"))
 ratios = fread(paste0("processed_data/", tissue, "/", tissue, "_mut_ratios.tsv.gz")) |>
-  filter(gene_name %in% c("APC", "KRAS"))
+  filter(gene_name %in% c("APC", "KRAS", "TP53"))
 
 # load the mutation data:
 cancer_bDM = fread("processed_data/boostdm/boostdm_genie_cosmic/colon_boostDM_cancer.txt.gz")
@@ -115,6 +115,17 @@ expected_rate_KRAS_single_snv_sc = expected_rates |>
   group_by(donor, category) |>
   summarise(across(c(mle, cilow, cihigh, age), mean)) |>
   arrange(category, donor, age)
+
+KRAS_driver_mutation_plot =  expected_rate_KRAS_single_snv_sc |>
+  filter(category == "normal") |>
+  mutate(across(c(mle, cilow, cihigh), ~ . * ncells)) |>
+  ggplot(aes(x = age, y = mle, color = category)) +
+  geom_pointrange(aes(ymin = cilow, ymax = cihigh)) +
+  scale_y_continuous(labels = scales::label_comma()) +
+  scale_color_manual(values = colors) +
+  theme_cowplot() +
+  labs(y = 'number of cells with KRAS mutations', x = "Age (years)") +
+  theme(legend.position = "none")
 
 # Expected number of cells with double mutations:
 apc_counts_boostdm = cancer_bDM[gene_name == "APC" & driver == TRUE, .N, by = c("gene_name", "mut_type",  "driver")]
@@ -155,6 +166,32 @@ APC_double_mut_plot = apc_double_driver |>
 figure2BC = APC_single_mut_plot + APC_double_mut_plot
 figure2BC
 ggsave("plots/colon/Figure2BC.png", figure2BC, width = 8.5, height = 4)
+
+
+# TP53 mutations:
+TP53_single_driver = expected_rates |>
+  left_join(ratios |> filter(gene_name == "TP53")) |>
+  left_join(metadata) |>
+  inner_join(apc_counts_boostdm |> filter(driver), by = "mut_type", relationship = "many-to-many") |>
+  mutate(across(c(mle, cilow, cihigh), ~ . * N * ratio)) |>
+  group_by(category, donor, age,  mut_type) |>
+  summarize(across(c(mle, cilow, cihigh), mean), .groups = "drop_last") |>
+  summarize(across(c(mle, cilow, cihigh), sum))
+
+
+TP53_single_driver_plot = TP53_single_driver |>
+  filter(category %in% c("normal", "POLD1")) |>
+  mutate(across(c(mle, cilow, cihigh), ~ . * ncells),
+         category = factor(category, levels = c("normal", "IBD", "POLD1", "POLE"))) |>
+  ggplot(aes(x = age, y = mle, color = category)) +
+  geom_pointrange(aes(ymin = cilow, ymax = cihigh)) +
+  scale_y_continuous(labels = scales::label_comma()) +
+  scale_color_manual(values = colors) +
+  facet_grid(. ~ category ,axes = "all_y") +
+  theme_cowplot() +
+  labs(y = 'number of cells with TP53 mutations', x = "Age (years)")
+TP53_single_driver_plot
+
 
 # make a dataframe with the relative mutation rates for all the different changes:
 vogelgram_mut_risks_sc = tibble(
@@ -296,10 +333,10 @@ for (i in 1:nrow(mutated_fractions)) {
          subtitle = paste0("Percentage of CRC = ",format(mutated_fractions[i, 1]*100, digits = 3),
                            "%\nRatio mutated cells:CRC = ", format(ratio_mut_cells_crc, digits = 3, big.mark = ",")))
 
-
-
 }
 
+wrap_plots(plot_multiple_fraction_list)
+wrap_plots(plot_fraction_list)
 
 #########################################################
 # overlay the number of expected polyps in the epithelium
@@ -334,7 +371,8 @@ for (i in rownames(mutated_fractions)) {
 ad_incidence_mean = rbindlist(incidence_list, idcol = "mutation")
 
 ad_incidence_mean = ad_incidence_mean |>
-  mutate(fraction_adenoma_apc = get_prob_mutated_N(fraction_adenoma_apc, 1))
+  mutate(prob_adenoma_apc = get_prob_mutated_N(fraction_adenoma_apc, 1),
+         age_point = (min_age + max_age)/2)
 
 # Prevalence of Hyperplastic Polyps (HP) and Mean Number of HP per Ten   Intestines Examined, by Age and Sex
 # As these values are estimates of the actual number of individuals with these HP numbers,
@@ -344,6 +382,34 @@ polypoid_lesions = polypoid_lesions |>
   mutate(min_age = age_min_column) |>
   mutate(max_age = age_max_column) |>
   mutate(sum_polyps = `1` +  (`2–4` * 3) + (`5–9` * 7) + (`10+` * 10))
+
+# get the mutation probability:
+ad_incidence_mean_plot = ad_incidence_mean |> dplyr::rename(name = mutation)
+vogelgram_risks_long |>
+  filter(category == "normal") |>
+  filter(grepl("APC_double", name)) |>
+  ggplot() +
+  geom_point(aes(x = age, y = incidence), color = "red") +
+  geom_point(data = ad_incidence_mean_plot |> filter(grepl("APC_double", name)), aes(x = age_point , y = fraction_adenoma_apc)) +
+  facet_wrap(name ~ ., scales = "free" ) +
+  theme_cowplot() +
+  labs(x = "Age (years)", y = "Number of mutations individual /\nFraction of individuals with CRC")
+
+
+ad_incidence_mean_plot = ad_incidence_mean_plot |>
+  mutate(name =factor(name, levels = c("APC_single_snv", "KRAS_single_snv", "APC_double", "KRAS_APC_single", "KRAS_APC_double")))
+vogelgram_risks_long |>
+  filter(category == "normal") |>
+  mutate(name = factor(name, levels = c("APC_single_snv", "KRAS_single_snv", "APC_double", "KRAS_APC_single", "KRAS_APC_double"))) |>
+  ggplot(aes(x = age, y = incidence)) +
+  geom_point(shape = 21, fill = "red", color = "white", size = 3) +
+  geom_smooth(method = "lm", formula =  y ~ poly(x, 2, raw = TRUE), se = FALSE, color = "darkred") +
+  geom_point(data = ad_incidence_mean_plot, aes(x = age_point , y = fraction_adenoma_apc), color = "grey50") +
+  facet_wrap(name ~ ., scales = "free" ) +
+  theme_cowplot() +
+  labs(x = "Age (years)", y = "Number of mutations individual /\nFraction of individuals with CRC",
+       title = "Adenoma vs CRC incidence")
+
 
 ###########################################
 # Study the incidence rates of more than 1 mut
@@ -392,16 +458,16 @@ ggplot(vogelgram_mut_plot, aes(x = age, y = mut_probability)) +
   geom_smooth(aes( color = nmut), formula = y ~ x,se = FALSE,
               method = "glm", fullrange = TRUE,
               method.args = list(family = quasibinomial(link = "probit"))) +
-#  geom_point(aes( color = nmut)) +
+  geom_point(aes( color = nmut)) +
   geom_smooth(data = ad_incidence_mean,
               aes(x = (min_age + max_age)/2,
-                  y = fraction_adenoma_apc),
+                  y = prob_adenoma_apc),
               formula = y ~ x,se = FALSE,
               method = "glm", fullrange = TRUE, color = "black",
               method.args = list(family = quasibinomial(link = "probit"))) +
     geom_point(data = ad_incidence_mean,
                aes(x = (min_age + max_age)/2,
-                   y = fraction_adenoma_apc), color = "black") +
+                   y = prob_adenoma_apc), color = "black") +
   scale_color_manual(values = c('#d73027','#f46d43','#fdae61','#fee08b','#ffffbf','#d9ef8b','#a6d96a','#66bd63','#1a9850')) +
   facet_wrap(mutname ~ . , scale = "free_y", axes = "all") +
   theme_cowplot() +
@@ -424,6 +490,7 @@ ukbiobank = rbindlist(ukbiobank_list, idcol = "mutation") |>
                               "KRAS APC 1" ~ "KRAS 1 SNV APC 1 SNV",
                               .default = mutname))
 
+# probabilities
 vogelgram_mut_plot |>
   mutate(Nmut = factor(Nmut, levels = (unique(Nmut)))) |>
   filter(Nmut %in% c(1)) |>
@@ -431,6 +498,7 @@ vogelgram_mut_plot |>
   geom_smooth(aes( color = nmut), formula = y ~ x,se = FALSE,
               method = "glm", fullrange = TRUE,
               method.args = list(family = quasibinomial(link = "probit"))) +
+  geom_point(aes( color = nmut)) +
 
   geom_point(data = ukbiobank, aes(x = age, y = incidence)) +
   geom_smooth(data = ukbiobank,
@@ -443,5 +511,3 @@ vogelgram_mut_plot |>
   theme_cowplot() +
   labs(color = "Number mutated cells", y = "Probability of event occurring\nin individual", x = "Age (Years)") +
   theme(strip.background = element_blank())
-ggsave("plots/")
-

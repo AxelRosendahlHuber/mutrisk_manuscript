@@ -53,13 +53,28 @@ DNMT3A_drivers = CH_bDM[gene_name == "DNMT3A" & driver == TRUE , .N, c("gene_nam
 DNMT3A_R882H_rates = calc_exp_muts(expected_rates, DNMT3A_R882H_hotspot, metadata= metadata, ratios = ratios, ncells = ncells)
 DNMT3A_driver_rates = calc_exp_muts(expected_rates, DNMT3A_drivers, metadata= metadata, ratios = ratios, ncells = ncells)
 
-F5C = ggplot(DNMT3A_driver_rates,
+F5B = ggplot(DNMT3A_driver_rates,
              aes(x = age, y = mle)) +
   geom_pointrange(aes(ymin = mle/4, ymax = mle*13), color = blood_colors)  +
   labs(y = "DNMT3A driver mutations", x = "Age (years)") +
   theme_cowplot()
 
-F5D = ggplot(DNMT3A_R882H_rates,
+
+F5B1 = ggplot(DNMT3A_driver_rates,
+              aes(x = age, y = mle)) +
+  geom_point(aes(y = mle), color = blood_colors)  +
+  labs(y = "DNMT3A driver mutations", x = "Age (years)", title = "100,000 HSCs") +
+  theme_cowplot()
+
+F5B2 = ggplot(DNMT3A_driver_rates,
+             aes(x = age, y = mle)) +
+  geom_point(aes(y = mle*13), color = blood_colors)  +
+  labs(y = "DNMT3A driver mutations", x = "Age (years)", title = "1.3 million HSCs") +
+  theme_cowplot()
+
+F5B1 + F5B2
+
+F5C = ggplot(DNMT3A_R882H_rates,
        aes(x = age, y = mle)) +
   geom_pointrange(aes(ymin = mle/4, ymax = mle*13), color = blood_colors)  +
   labs(y = "DNMT3A R882H mutations", x = "Age (years)") +
@@ -84,7 +99,7 @@ mutation_list = list(
         prob_mut_5 = get_prob_mutated_N(risk = mle/ncells ,ncells = ncells, N =  5),
         prob_mut_10 = get_prob_mutated_N(risk = mle/ncells ,ncells = ncells, N = 13))
 
-F5E = ggplot(mutation_list |> filter(name %in% c("DNMT3A_R882H", "DNMT3A_drivers")),
+F5D = ggplot(mutation_list |> filter(name %in% c("DNMT3A_R882H", "DNMT3A_drivers")),
        aes(x = age, y = prob_mle)) +
   geom_ribbon(aes(ymin = prob_cilow, ymax = prob_cihigh), alpha = 0.5, fill = blood_colors) +
   facet_wrap(. ~ name, scales = "free_y") +
@@ -99,7 +114,7 @@ F5E = ggplot(mutation_list |> filter(name %in% c("DNMT3A_R882H", "DNMT3A_drivers
   labs(y = "Fraction of individuals\nmeeting condition",
        x = "Age (years)",fill = NULL) +
   theme(legend.position = "none")
-F5E
+F5D
 
 # specifically select against sites in DNMT3A:
 UKB_DNMT3A = fread("raw_data/UKBiobank/UKB_age_frequencies_DNMT3A.tsv")
@@ -129,6 +144,11 @@ UKB_fraction_all = UKB_fraction |>
   summarize(fraction = sum(fraction)) |>
   select(Age, fraction, type)
 
+UKB_R882H = UKB |>
+  filter(aa_change == "R882H") |>
+  mutate(fraction = n / Individuals)
+
+
 curve_data = mutation_list |> filter(name == "DNMT3A_drivers") |>
   dplyr::rename(mutation = name, Age = age) |>
   pivot_longer(cols = c("prob_mle", "prob_mut_5", "prob_mut_10")) |>
@@ -139,7 +159,7 @@ curve_data = mutation_list |> filter(name == "DNMT3A_drivers") |>
                            label == "prob_mut_10" ~ "> 10 DNMT3A drivers",
                             .default = label))
 
-F5F = ggplot(curve_data, aes(x = Age, y = value)) +
+F5E = ggplot(curve_data, aes(x = Age, y = value)) +
   geom_smooth(aes(group = name), formula = y ~ x,se = FALSE,
               method = "glm",               method.args = list(family = quasibinomial(link = "probit")),
               color = blood_colors) +
@@ -154,14 +174,32 @@ F5F = ggplot(curve_data, aes(x = Age, y = value)) +
   labs(y = "number of cells/individual",
        x = "Age (years)",fill = NULL) +
   theme(legend.position = "none")
-F5F
+F5E
+
+
+##
+expansion_time = log(2000) / log(1.148)
+
+curve_data = mutation_list |> filter(name == "DNMT3A_R882H") |>
+  dplyr::rename(mutation = name, Age = age) |>
+  select(mutation, donor, category, mle, Age)
+F5E = ggplot(curve_data, aes(x = Age, y = mle)) +
+  geom_point(aes(x = Age + expansion_time), color = "red") +
+  geom_point(data = UKB_R882H, mapping = aes(y = fraction))  +
+  scale_color_manual(values = blood_colors) +
+  theme_cowplot() +
+  labs(y = "number of cells/individual",
+       x = "Age (years)",fill = NULL,
+       title = "Number of DNMT3A mutations + expansion time") +
+  theme(legend.position = "none")
+F5E
 
 
 # make figure
-F5B = prep_plot(F5C,label = "B", t = 8, r = 8, l = 8, b = 8)
-F5C = prep_plot(F5D,label = "C", t = 8, r = 8, l = 8, b = 8)
-F5D = prep_plot(F5E,label = "D", t = 8, r = 8, l = 8, b = 8)
-F5E = prep_plot(F5F,label = "E", t = 8, r = 8, l = 8, b = 8)
+F5B = prep_plot(F5B,label = "B", t = 8, r = 8, l = 8, b = 8)
+F5C = prep_plot(F5C,label = "C", t = 8, r = 8, l = 8, b = 8)
+F5D = prep_plot(F5D,label = "D", t = 8, r = 8, l = 8, b = 8)
+F5E = prep_plot(F5E,label = "E", t = 8, r = 8, l = 8, b = 8)
 
 # for the fitness effect: we need to consider that we can only model mutations with a specific fitness effect
 # perform two types of analyses:s
@@ -169,7 +207,7 @@ F5E = prep_plot(F5F,label = "E", t = 8, r = 8, l = 8, b = 8)
 # 2. with all DNMT3A variants. Check how we need to calculate the fitness. Probably taking the sum of all of the curves would be the best solution
 
 # also needed would be the list of all the variants in the Watson analysis reported to be mutated
-F5A = readRDS("processed_data/plots/F5B.rds")
+F5A = readRDS("processed_data/plots/F5A.rds")
 F5A = prep_plot(F5A, label = "A", t = 8, r = 8, l = 8, b = 8)
 
 library(patchwork)
