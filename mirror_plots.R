@@ -155,7 +155,6 @@ prob_barplot_colon = make_gene_barplot(boostdm, ratios, gene_of_interest = "TP53
 F1B = wrap_plots(prob_barplot_colon, prob_barplot_lung, prob_barplot_blood, ncol = 3, guides = "collect")
 prep_plot(F1B, label = "B")
 
-
 barplot_colon = make_gene_barplot(boostdm, ratios, gene_of_interest = "TP53", tissue_select = "colon",
                                   tissue_name = "Colon", cell_probabilities = FALSE) + labs(y = NULL)
 barplot_lung = make_gene_barplot(boostdm, ratios, gene_of_interest = "TP53", tissue_select = "lung",
@@ -215,81 +214,7 @@ F4A
 #         legend.title = element_text(size = rel(0.8)),
 #         legend.key.size = unit(0.8, "lines"), legend.background = element_blank())
 
-# plotting function making barplots
-make_summary_barplots = function(boostdm, ratios, gene_of_interest,
-                                 cell_probabilities = FALSE, individual = FALSE, older_individuals = TRUE) {
 
-  tissue_samples = unlist(tissue_colors) |>
-    names()
-
-  # first thing to
-  output_list = list()
-  for (i in tissue_samples){
-    tissue_select = str_split_1(i, "\\.")[1]
-    category_select = str_split_1(i, "\\.")[2]
-    # merge the samples in a for loop
-    mr_rates = merge_mutrisk_drivers(boostdm, ratios, gene_of_interest, tissue_select = tissue_select, tissue_name = tissue_select,
-                                            category_select = category_select, cell_probabilities = FALSE, individual = FALSE,
-                                            older_individuals = TRUE)[[1]]
-    output_list[[i]] = mr_rates |>
-      group_by(driver, tissue) |>
-      summarize(mle = sum(mle)) |>
-      mutate(category = category_select)
-  }
-
-  output_rates = rbindlist(output_list, idcol = "tissue.color") |>
-    mutate(driver = factor(driver, levels = c("non-driver", "driver")),
-           tissue_category = gsub("\\.","_", tissue.color),
-           category = factor(category, levels = rev(unique(color_df$category)))) |>
-    mutate(label = paste0(driver, ": ", prettyNum(mle, big.mark = ",", digits = 2, scientific = FALSE)),
-           label_x = ifelse(driver == "driver", 0, lag(mle)))
-
-  plot_list = list()
-
-  for (tissue_select in c("colon", "lung", "blood")) {
-    tissue_rates = output_rates |> filter(tissue %in% tissue_select)
-    plot_list[[tissue_select]] = ggplot(tissue_rates |> filter(tissue.color != "blood.chemotherapy"),
-         aes(y = category, x = mle, fill = tissue.color)) +
-      geom_col(aes(alpha = driver), color = "black") +
-      geom_text(aes(label = label, x = label_x, color = driver), hjust = -0.2) +
-      scale_fill_manual(values = unlist(tissue_colors)) +
-      facet_grid(tissue ~., scales = "free", space = "free_y") +
-      theme_cowplot() +
-      scale_alpha_manual(values = c(0.5, 1)) +
-      scale_color_manual(values = c("black", "white")) +
-      scale_x_continuous(expand = expansion(mult = c(0, 0.1)), labels = label_comma(), breaks = extended_breaks(n = 4)) +
-      ggtitle(paste(gene_of_interest, tissue_select)) +
-      labs(y = NULL, x = "Number of mutated cells") +
-      theme(legend.position = "none", strip.text = element_blank())
-  }
-
-  wrap_plots(plot_list, ncol = 1, heights = c(4, 3, 1.5))
-}
-
-make_summary_barplots(boostdm, ratios, "TP53",
-                      cell_probabilities = FALSE, individual = FALSE,
-                      older_individuals = TRUE)
-
-
-make_summary_barplots(boostdm, ratios, "APC",
-                      cell_probabilities = FALSE, individual = FALSE,
-                      older_individuals = TRUE)
-
-make_summary_barplots(boostdm, ratios, "KRAS",
-                      cell_probabilities = FALSE, individual = FALSE,
-                      older_individuals = TRUE)
-
-# use boostdm ch for DNMT3A
-boostDM_ch = fread("processed_data/boostdm/boostdm_genie_cosmic/CH_boostDM_cancer.txt.gz") |>
-  mutate(driver = ifelse(driver == TRUE, "driver", "non-driver"))# change names for overview
-make_summary_barplots(boostdm = boostDM_ch, ratios = ratios, gene_of_interest = "DNMT3A",
-                      cell_probabilities = FALSE, individual = FALSE,
-                      older_individuals = TRUE)
-# check if easier to make a plot for DNMT3A plots
-
-
-
-# boxplots for all?
 boxplot_list = list()
 for (i in 1:nrow(color_df)) {
 
@@ -297,26 +222,62 @@ for (i in 1:nrow(color_df)) {
   tissue_select = color_df$tissue[i]
 
   # make dotplots with the individual variation:
-  boxplot_list[[i]] = merge_mutrisk_drivers(boostdm, ratios, gene_of_interest = "TP53", tissue_select = tissue_select, category_select = category_select,
+  boxplot_list[[i]] = merge_mutrisk_drivers(boostdm, ratios, gene_of_interest = "TP53",
+                                            tissue_select = tissue_select, category_select = category_select,
                                     individual = "all")[[1]] |>
     group_by(donor, driver) |>
-    summarize(mle = sum(mle)) |>
-    mutate(tissue = tissue_select,
-           category = category_select)
+    summarize(across(c(mle, cilow, cihigh), sum)) |>
+    mutate(tissue = tissue_select, category = category_select)
 }
 
 boxplot_df = rbindlist(boxplot_list) |>
   mutate(tissue = factor(tissue, levels = c("colon", "lung", "blood")),
                          tissue_category = paste0(tissue, "_", category))
 
-# 1: All categories (healthy & exposed states)
-df_total_muts = boxplot_df |> filter(category != "chemotherapy") |>
+df_total_muts = boxplot_df |>
+  filter(category != "chemotherapy") |>
+  left_join(metadata |> select(-sampleID) |> distinct()) |>
+  mutate(category = factor(category, levels = unique(color_df$category)))
+
+tissue_plots = list()
+tissue_order = c("colon", "lung", "blood")
+for (i in 1:3) {
+
+  select_tissue = tissue_order[[i]]
+  df_tissue = df_total_muts |>
+    filter(tissue %in% select_tissue) |>
+    filter(driver == "driver")
+
+  plt = ggplot(df_tissue, aes(x = age, y = mle, color = tissue_category)) +
+    geom_pointrange(aes(ymin = cilow, ymax = cihigh)) +
+    facet_nested(. ~ tissue + category, axes = "y", remove_labels = "y") +
+    scale_color_manual(values = tissue_category_colors) +
+    scale_y_continuous(labels = scales::label_comma(), limits = c(0,NA)) +
+    theme_cowplot() +
+    theme(panel.grid = element_blank(), strip.background = element_blank(),
+          legend.position = "none", ggh4x.facet.nestline = element_line()) +
+    labs(x = "Age (years)", y = "Number of cells with\nTP53 driver mutation")
+  tissue_plots[[select_tissue]] = prep_plot(plt, LETTERS[i+2])
+}
+
+F3C = wrap_plots(tissue_plots, nrow = 1, widths = c(4, 3, 1.2))
+F3C
+
+# alternative figure [two rows of figures ]
+F3C_bottom = wrap_plots(tissue_plots[-1], widths = c(2.8, 1))
+F3C = tissue_plots[[1]] / F3C_bottom
+
+F3C
+# old plot (keeping the code just in case this is needed)
+df_total_muts = boxplot_df |>
+  filter(category != "chemotherapy") |>
   left_join(metadata |> select(-sampleID) |> distinct()) |>
   group_by(tissue, category, tissue_category, donor, age) |>
   summarize(mle = sum(mle),
-            .groups = "drop_last")
+            .groups = "drop")
 
 df_mean_muts = df_total_muts |>
+  group_by(tissue, category, tissue_category) |>
   summarize(sd = stats::sd(mle),
             mle = mean(mle))
 
