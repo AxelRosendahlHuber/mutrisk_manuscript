@@ -153,7 +153,7 @@ boostdm = fread("processed_data/boostdm/boostdm_genie_cosmic/pancancer_boostDM_i
 # filter for tissue
 plot_mirror = function(genie_exp, df_point, tissue_select, labels = labels, labels_exp = labels_exp) {
 
-  if (max(genie_exp$Protein_position, na.rm = TRUE) > 2000) {
+  if (max(genie_exp$Protein_position, na.rm = TRUE) > Inf) { # for now set the level to Inf to allow for large genes
     genie_exp = genie_exp |>
       mutate(Protein_position = (Protein_position - 1) %/% 5 + 1,
              Protein_position = Protein_position *5) |>
@@ -369,7 +369,7 @@ df_point = df_mirror |>
 F5A = ggplot(df_point, aes(x = position, y = mrate)) +
   geom_point(color = "white") +
   geom_col(data = df_mirror, aes(fill = type)) +
-  geom_text(data = data.frame(tissue_category = factor("UKBiobank CH"), position = 50, mrate = 1500, label = "TP53"),
+  geom_text(data = data.frame(tissue_category = factor("UKBiobank CH"), position = 50, mrate = 1500, label = "DNMT3A"),
             aes(label = label)) +
   facet_grid2(tissue_category ~ . , scales = "free") +
   scale_fill_manual(values = COLORS6) +

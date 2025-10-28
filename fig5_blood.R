@@ -99,22 +99,22 @@ mutation_list = list(
         prob_mut_5 = get_prob_mutated_N(risk = mle/ncells ,ncells = ncells, N =  5),
         prob_mut_10 = get_prob_mutated_N(risk = mle/ncells ,ncells = ncells, N = 13))
 
-F5D = ggplot(mutation_list |> filter(name %in% c("DNMT3A_R882H", "DNMT3A_drivers")),
-       aes(x = age, y = prob_mle)) +
-  geom_ribbon(aes(ymin = prob_cilow, ymax = prob_cihigh), alpha = 0.5, fill = blood_colors) +
-  facet_wrap(. ~ name, scales = "free_y") +
-  geom_smooth(formula = y ~ x,se = FALSE,
-              method = "glm", fullrange = TRUE,
-              method.args = list(family = quasibinomial(link = "probit")),
-              color = blood_colors) +
-  geom_point() +
-  scale_fill_manual(values = blood_colors) +
-  scale_color_manual(values = blood_colors) +
-  theme_cowplot() +
-  labs(y = "Fraction of individuals\nmeeting condition",
-       x = "Age (years)",fill = NULL) +
-  theme(legend.position = "none")
-F5D
+# F5D = ggplot(mutation_list |> filter(name %in% c("DNMT3A_R882H", "DNMT3A_drivers")),
+#        aes(x = age, y = prob_mle)) +
+#   geom_ribbon(aes(ymin = prob_cilow, ymax = prob_cihigh), alpha = 0.5, fill = blood_colors) +
+#   facet_wrap(. ~ name, scales = "free_y") +
+#   geom_smooth(formula = y ~ x,se = FALSE,
+#               method = "glm", fullrange = TRUE,
+#               method.args = list(family = quasibinomial(link = "probit")),
+#               color = blood_colors) +
+#   geom_point() +
+#   scale_fill_manual(values = blood_colors) +
+#   scale_color_manual(values = blood_colors) +
+#   theme_cowplot() +
+#   labs(y = "Fraction of individuals\nmeeting condition",
+#        x = "Age (years)",fill = NULL) +
+#   theme(legend.position = "none")
+# F5D
 
 # specifically select against sites in DNMT3A:
 UKB_DNMT3A = fread("raw_data/UKBiobank/UKB_age_frequencies_DNMT3A.tsv")
@@ -159,41 +159,41 @@ curve_data = mutation_list |> filter(name == "DNMT3A_drivers") |>
                            label == "prob_mut_10" ~ "> 10 DNMT3A drivers",
                             .default = label))
 
-F5E = ggplot(curve_data, aes(x = Age, y = value)) +
-  geom_smooth(aes(group = name), formula = y ~ x,se = FALSE,
-              method = "glm",               method.args = list(family = quasibinomial(link = "probit")),
-              color = blood_colors) +
-  geom_point(data = UKB_fraction_all, mapping = aes(y = fraction))  +
-  ggrepel::geom_text_repel(aes(label = label),
-                   nudge_x = 3, min.segment.length = 100,
-                   na.rm = TRUE) +
-  scale_fill_manual(values = ) +
-  scale_color_manual(values = blood_colors) +
-  scale_x_continuous(limits = c(0, 90)) +
-  theme_cowplot() +
-  labs(y = "number of cells/individual",
-       x = "Age (years)",fill = NULL) +
-  theme(legend.position = "none")
-F5E
-
+# F5E = ggplot(curve_data, aes(x = Age, y = value)) +
+#   geom_smooth(aes(group = name), formula = y ~ x,se = FALSE,
+#               method = "glm",               method.args = list(family = quasibinomial(link = "probit")),
+#               color = blood_colors) +
+#   geom_point(data = UKB_fraction_all, mapping = aes(y = fraction))  +
+#   ggrepel::geom_text_repel(aes(label = label),
+#                    nudge_x = 3, min.segment.length = 100,
+#                    na.rm = TRUE) +
+#   scale_fill_manual(values = ) +
+#   scale_color_manual(values = blood_colors) +
+#   scale_x_continuous(limits = c(0, 90)) +
+#   theme_cowplot() +
+#   labs(y = "number of cells/individual",
+#        x = "Age (years)",fill = NULL) +
+#   theme(legend.position = "none")
+# F5E
+#
 
 ##
-expansion_time = log(2000) / log(1.148)
-
-curve_data = mutation_list |> filter(name == "DNMT3A_R882H") |>
-  dplyr::rename(mutation = name, Age = age) |>
-  select(mutation, donor, category, mle, Age)
-F5E = ggplot(curve_data, aes(x = Age, y = mle)) +
-  geom_point(aes(x = Age + expansion_time), color = "red") +
-  geom_point(data = UKB_R882H, mapping = aes(y = fraction))  +
-  scale_color_manual(values = blood_colors) +
-  theme_cowplot() +
-  labs(y = "number of cells/individual",
-       x = "Age (years)",fill = NULL,
-       title = "Number of DNMT3A mutations + expansion time") +
-  theme(legend.position = "none")
-F5E
-
+# expansion_time = log(2000) / log(1.148)
+#
+# curve_data = mutation_list |> filter(name == "DNMT3A_R882H") |>
+#   dplyr::rename(mutation = name, Age = age) |>
+#   select(mutation, donor, category, mle, Age)
+# F5E = ggplot(curve_data, aes(x = Age, y = mle)) +
+#   geom_point(aes(x = Age + expansion_time), color = "red") +
+#   geom_point(data = UKB_R882H, mapping = aes(y = fraction))  +
+#   scale_color_manual(values = blood_colors) +
+#   theme_cowplot() +
+#   labs(y = "number of cells/individual",
+#        x = "Age (years)",fill = NULL,
+#        title = "Number of DNMT3A mutations + expansion time") +
+#   theme(legend.position = "none")
+# F5E
+#
 
 # make figure
 F5B = prep_plot(F5B,label = "B", t = 8, r = 8, l = 8, b = 8)

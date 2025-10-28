@@ -96,77 +96,77 @@ metadata = fread(paste0("processed_data/", tissue, "/", tissue, "_metadata.tsv")
 # load the mutation rates
 ncells = tissue_ncells_ci$mid_estimate[1]
 expected_rates = fread(paste0("processed_data/", tissue, "/", tissue, "_expected_rates.tsv.gz"))
+expected_rates_normal = expected_rates |>   filter(category == "normal")
 ratios = fread(paste0("processed_data/", tissue, "/", tissue, "_mut_ratios.tsv.gz")) |>
   filter(gene_name %in% c("APC", "KRAS", "TP53"))
 
 # load the mutation data:
 cancer_bDM = fread("processed_data/boostdm/boostdm_genie_cosmic/colon_boostDM_cancer.txt.gz")
 
-# get KRAS driver mutation rate
+# Calculate the driver mutation rates
 KRAS_single_snv_muts = cancer_bDM[gene_name == "KRAS" & driver == TRUE, .N,
                                   c("gene_name", "mut_type", "aachange", "position")]
-KRAS_G12V_hotspot = KRAS_single_snv_muts
 
-expected_rate_KRAS_single_snv_sc = expected_rates |>
-  inner_join(KRAS_G12V_hotspot, by = "mut_type", relationship = "many-to-many") |>
+KRAS_single_snv = expected_rates_normal |>
+  inner_join(KRAS_single_snv_muts, by = "mut_type", relationship = "many-to-many") |>
   left_join(metadata) |>
   left_join(ratios) |>
   mutate(across(c(mle, cilow, cihigh), ~ . * ratio)) |>
   group_by(donor, category) |>
-  summarise(across(c(mle, cilow, cihigh, age), mean)) |>
-  arrange(category, donor, age)
-
-KRAS_driver_mutation_plot =  expected_rate_KRAS_single_snv_sc |>
-  filter(category == "normal") |>
-  mutate(across(c(mle, cilow, cihigh), ~ . * ncells)) |>
-  ggplot(aes(x = age, y = mle, color = category)) +
-  geom_pointrange(aes(ymin = cilow, ymax = cihigh)) +
-  scale_y_continuous(labels = scales::label_comma()) +
-  scale_color_manual(values = colors) +
-  theme_cowplot() +
-  labs(y = 'number of cells with KRAS mutations', x = "Age (years)") +
-  theme(legend.position = "none")
+  summarise(across(c(mle, cilow, cihigh, age), mean), groups = "drop")
 
 # Expected number of cells with double mutations:
 apc_counts_boostdm = cancer_bDM[gene_name == "APC" & driver == TRUE, .N, by = c("gene_name", "mut_type",  "driver")]
 
-apc_single_driver = expected_rates |>
+apc_single_snv = expected_rates_normal |>
   left_join(ratios |> filter(gene_name == "APC")) |>
   left_join(metadata) |>
   inner_join(apc_counts_boostdm |> filter(driver), by = "mut_type", relationship = "many-to-many") |>
   mutate(across(c(mle, cilow, cihigh), ~ . * N * ratio)) |>
   group_by(category, donor, age,  mut_type) |>
   summarize(across(c(mle, cilow, cihigh), mean), .groups = "drop_last") |>
-  summarize(across(c(mle, cilow, cihigh), sum))
+  summarize(across(c(mle, cilow, cihigh), sum), .groups = "drop")
 
-apc_double_driver = apc_single_driver |>
+double_apc = apc_single_snv |>
   mutate(across(c(mle, cilow, cihigh), ~ ((.^2) / 2)))
 
-APC_single_mut_plot = apc_single_driver |>
-  filter(category == "normal") |>
-  mutate(across(c(mle, cilow, cihigh), ~ . * ncells)) |>
-  ggplot(aes(x = age, y = mle, color = category)) +
-  geom_pointrange(aes(ymin = cilow, ymax = cihigh)) +
-  scale_y_continuous(labels = scales::label_comma()) +
-  scale_color_manual(values = colors) +
-  theme_cowplot() +
-  labs(y = 'number of cells with APC mutations', x = "Age (years)") +
-  theme(legend.position = "none")
+apc_kras = apc_single_snv |>
+  mutate(mle = mle * KRAS_single_snv$mle,
+         cilow = cilow * KRAS_single_snv$cilow,
+         cihigh = cihigh * KRAS_single_snv$cihigh)
 
-APC_double_mut_plot = apc_double_driver |>
-  filter(category == "normal") |>
-  mutate(across(c(mle, cilow, cihigh), ~ . * ncells)) |>
-  ggplot(aes(x = age, y = mle, color = category)) +
-  geom_pointrange(aes(ymin = cilow, ymax = cihigh)) +
-  theme_cowplot() +
-  scale_color_manual(values = colors) +
-  labs(y = 'number of cells w/\nAPC mutations on both alleles', x = "Age (years)") +
-  theme(legend.position = "none")
+double_apc_kras = double_apc |>
+  mutate(mle = mle * KRAS_single_snv$mle,
+         cilow = cilow * KRAS_single_snv$cilow,
+         cihigh = cihigh * KRAS_single_snv$cihigh)
 
-figure2BC = APC_single_mut_plot + APC_double_mut_plot
-figure2BC
-ggsave("plots/colon/Figure2BC.png", figure2BC, width = 8.5, height = 4)
 
+# Plot the driver mutation rates
+plot_driver_muts = function(driver_rates, y_axis = "INSERT TITLE") {
+  driver_rates |>
+    filter(category == "normal") |>
+    mutate(across(c(mle, cilow, cihigh), ~ . * ncells)) |>
+    ggplot(aes(x = age, y = mle, color = category)) +
+    geom_pointrange(aes(ymin = cilow, ymax = cihigh)) +
+    scale_y_continuous(labels = scales::label_comma()) +
+    scale_color_manual(values = colors) +
+    theme_cowplot() +
+    labs(y = y_axis, x = "Age (years)") +
+    theme(legend.position = "none")
+}
+
+F4B = plot_driver_muts(apc_single_snv, y_axis = "Number of cells with\nan APC driver mutation")
+F4C = plot_driver_muts(KRAS_single_snv, y_axis = "Number of cells with\nKRAS driver mutations")
+F4D = plot_driver_muts(double_apc, y_axis = "Number of cells with\ndouble APC driver mutations")
+F4E = plot_driver_muts(apc_kras, y_axis = "Number of cells with\nAPC + KRAS driver mutations")
+F4F = plot_driver_muts(double_apc_kras, y_axis = "Number of cells with\n doubleAPC + KRAS driver mutations") +
+  scale_y_continuous(labels = scales::label_number_auto())
+
+# make the figures for
+figs = list(F4B = F4B, F4C = F4C, F4D = F4D, F4E = F4E, F4F = F4F)
+annotated_figs = lapply(names(figs), \(x) prep_plot(figs[[x]], substr(x, 3,3)))
+
+F3_middle = wrap_plots(annotated_figs, nrow = 1 )
 
 # TP53 mutations:
 TP53_single_driver = expected_rates |>
@@ -179,8 +179,9 @@ TP53_single_driver = expected_rates |>
   summarize(across(c(mle, cilow, cihigh), sum))
 
 
+# make this plot for all tissues
 TP53_single_driver_plot = TP53_single_driver |>
-  filter(category %in% c("normal", "POLD1")) |>
+#  filter(category %in% c("normal", "POLD1")) |>
   mutate(across(c(mle, cilow, cihigh), ~ . * ncells),
          category = factor(category, levels = c("normal", "IBD", "POLD1", "POLE"))) |>
   ggplot(aes(x = age, y = mle, color = category)) +
@@ -191,7 +192,6 @@ TP53_single_driver_plot = TP53_single_driver |>
   theme_cowplot() +
   labs(y = 'number of cells with TP53 mutations', x = "Age (years)")
 TP53_single_driver_plot
-
 
 # make a dataframe with the relative mutation rates for all the different changes:
 vogelgram_mut_risks_sc = tibble(
