@@ -346,7 +346,7 @@ DNMT3A = boostdm_ch |> filter(gene_name == "DNMT3A")
 mutations_blood_DNMT3A = left_join(DNMT3A, mean_rates_blood, relationship = "many-to-many", by = "mut_type") |>
   left_join(triplet_match_substmodel, by = "mut_type") |>
   group_by(position, tissue_category, type) |>
-  summarize(mrate = sum(mle)) |>
+  summarize(mrate = sum(mle) * ncells) |>
   select(position, type, tissue_category, mrate)
 
 library(ggh4x)
@@ -377,9 +377,7 @@ F5A = ggplot(df_point, aes(x = position, y = mrate)) +
   panel_border() +
   theme(legend.position = "none", panel.spacing.y = unit(0, "mm")) +
   labs(y = "Number expected/\nobserved muts",  x = "AA position") +
-  scale_y_continuous(expand=expansion(mult=c(0,0)), breaks = scales::breaks_extended(n = 3))
+  scale_y_continuous(expand=expansion(mult=c(0,0)), breaks = scales::breaks_extended(n = 3), labels = abs)
+F5A
 
 saveRDS(F5A, "processed_data/plots/F5A.rds")
-
-
-

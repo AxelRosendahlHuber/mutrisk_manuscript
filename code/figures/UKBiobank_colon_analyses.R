@@ -166,7 +166,7 @@ F4F = plot_driver_muts(double_apc_kras, y_axis = "Number of cells with\n doubleA
 figs = list(F4B = F4B, F4C = F4C, F4D = F4D, F4E = F4E, F4F = F4F)
 annotated_figs = lapply(names(figs), \(x) prep_plot(figs[[x]], substr(x, 3,3)))
 
-F3_middle = wrap_plots(annotated_figs, nrow = 1 )
+c = wrap_plots(annotated_figs, nrow = 1 )
 
 # TP53 mutations - check if this needs to be here or in Figure 3 script (the TP53 script)
 TP53_single_driver = expected_rates |>
