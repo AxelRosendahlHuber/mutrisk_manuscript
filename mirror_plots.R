@@ -102,7 +102,8 @@ merge_mutrisk_drivers = function(boostdm, ratios, gene_of_interest, tissue_selec
 make_gene_barplot = function(boostdm, ratios, gene_of_interest,
                              tissue_select = "colon", tissue_name = NULL,
                              category_select = "normal",
-                             cell_probabilities = FALSE, individual = FALSE, older_individuals = TRUE) {
+                             cell_probabilities = FALSE, individual = FALSE, older_individuals = TRUE,
+                             lollipop_dots = FALSE) {
 
   if (is.null(tissue_name)) {tissue_name = tissue_select}
 
@@ -131,16 +132,18 @@ make_gene_barplot = function(boostdm, ratios, gene_of_interest,
 
   # way to make the plot extend both upper and lower axes
   pl = ggplot(expected_gene_muts_label,
-         aes(x = position, y = mle, fill = type)) +
-    geom_col() +
+         aes(x = position, y = mle)) +
+    geom_col(aes(fill = type)) +
     scale_fill_manual(values = mutrisk::COLORS6) +
     theme_cowplot() +
-    scale_y_continuous(expand = expansion(mult = c(0, 0.1))) +
+    scale_y_continuous(expand = expansion(mult = c(0, 0.1)), labels = label_comma()) +
+    scale_x_continuous(expand = expansion(mult = c(0.01,0.01))) +
     labs(x = x_label, y = y_label, title = gene_of_interest, subtitle = label, fill = NULL)
 
   if (cell_probabilities == TRUE) {
     pl = pl + scale_y_continuous(expand = expansion(mult = c(0, 0.1)), labels = function(x) x * 1e6)
   }
+
   pl
 }
 
@@ -174,7 +177,27 @@ POLD1_mutation = make_gene_barplot(boostdm, ratios, gene_of_interest = "TP53",
 colon_normal = make_gene_barplot(boostdm, ratios, gene_of_interest = "TP53",
                                  tissue_select = "colon", category_select = "normal", cell_probabilities = FALSE) +
   ggh4x::facet_grid2(driver ~ ., strip = strip_themed(background_y = elem_list_rect(fill = c("#C03830", "#707071")),
-                                                      text_y = elem_list_text(colour = c("white"), face = "bold")))
+                                                      text_y = elem_list_text(colour = c("white"), face = "bold")), axes = "all",
+                     remove_labels = "x")
+ggsave("plots/colon/TP53_driver_non-driver.png", colon_normal, width = 10, height = 4.5, bg = "white")
+
+
+# APC colon barplot
+APC_colon_normal = make_gene_barplot(boostdm, ratios, gene_of_interest = "APC",
+                                 tissue_select = "colon", category_select = "normal", cell_probabilities = FALSE) +
+  ggh4x::facet_grid2(driver ~ ., strip = strip_themed(background_y = elem_list_rect(fill = c("#C03830", "#707071")),
+                                                      text_y = elem_list_text(colour = c("white"), face = "bold")), axes = "all",
+                     remove_labels = "x")
+
+# Add dots to the colon barplot to make the individual bars more visible
+df_dots = APC_colon_normal@data |>
+  group_by(position, driver) |>
+  summarize(mle = sum(mle))
+
+APC_colon_normal = APC_colon_normal + geom_point(data = df_dots, aes(x = position, y = mle), size = 1.5) +
+  scale_y_continuous(limits = c(NA, 2250), expand = expansion(mult = c(0, 0.1)))
+ggsave("plots/colon/APC_driver_non-driver.png", APC_colon_normal, width = 12, height = 5, bg = "white")
+
 
 # Figure 4A
 F4A1 = make_gene_barplot(boostdm, ratios, gene_of_interest = "APC", tissue_select = "colon", cell_probabilities = FALSE) +

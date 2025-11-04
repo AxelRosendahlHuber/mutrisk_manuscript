@@ -151,8 +151,6 @@ wrap_plots(UKB_plot_list)
 
 # also consider making mirror plots for the individiual samples
 
-
-
 # TODO: Save the figure still.
 ggsave("manuscript/Figure_5/Figure_5.png", width = 15, height = 9)
 

@@ -20,7 +20,6 @@ metadata |> select(tissue, age, donor) |> distinct() |>
     filter(donor %in% c("O340", "PD34215", "KX008"))
 
 # find out more information about the donor: Male/Female
-
 groupby = "donor"
 
 save_plots = function(plot_list, path, name, width = 13, height = 8) {
@@ -110,7 +109,7 @@ plot_prob_curve_ci = function(probability_rates, analysis_name, groupby, ncell_d
 
   blood_df = data.frame(tissue = factor("blood", levels = levels(rates$tissue)),
                         x_coord = as.numeric(ncell_df[c("high_estimate", "low_estimate")][3,]),
-                        label = c("25,000", "1.3 million"))
+                        label = c("1.3 million", "25,000"))
 
   ggplot(rates) +
     geom_rect(data = tissue_ncells_plot,
@@ -135,8 +134,6 @@ plot_prob_curve_ci = function(probability_rates, analysis_name, groupby, ncell_d
           strip.background = element_blank()) +
     coord_cartesian(clip = "off")
 }
-
-
 
 # saturation vs age functions:
 # preprocessing function for the saturation function
@@ -341,6 +338,15 @@ analyze_probability = function(gene_counts, analysis_name, groupby = "donor",
   if (filter_normal == TRUE) {
     nrow = 1
     plot_list[["plot_saturation_curve_ci"]] = plot_prob_curve_ci(probability_rates = probability_rates, analysis_name, groupby, ncell_df = tissue_ncells_ci, nrow = nrow)
+
+    plot_list[["plot_saturation_curve_ci_single_ncells"]] = plot_prob_curve_ci(probability_rates = probability_rates |> filter(groupID %in% c("O340", "PD34215", "KX008")),
+                                                                        analysis_name, groupby, ncell_df = tissue_ncells_ci, nrow = nrow)
+
+    plot_list[["plot_saturation_curve_ci_single_ncells_line"]] = plot_prob_curve_ci(probability_rates = probability_rates |> filter(groupID %in% c("O340", "PD34215", "KX008")),
+                                                                               analysis_name, groupby, ncell_df = tissue_ncells_ci |> filter(tissue == "none"), nrow = nrow)
+
+
+
   } else { nrow = 2}
 
   plot_list[["plot_saturation_curve"]] = plot_prob_curve(probability_rates = probability_rates, analysis_name, groupby,nrow = nrow)
@@ -371,6 +377,14 @@ exome_analysis = analyze_probability(gene_counts = gene_counts, analysis_name = 
 exome_analysis_normal = analyze_probability(gene_counts = gene_counts, analysis_name = "exome analysis", groupby = "donor", filter_normal = TRUE)
 save_plots(exome_analysis_normal$plot_list, path = "plots/coverage_saturation/", name = "normal_exome", width = 7, height = 5)
 save_plots(exome_analysis_normal$plot_list, path = "plots/coverage_saturation/", name = "normal_exome_wideplot", width = 10, height = 5)
+
+# save for presentation:
+ggsave("plots/coverage_saturation/presentation_line.png", exome_analysis_normal$plot_list$plot_saturation_curve_ci_single_ncells,
+       width = 10, height = 3.7)
+ggsave("plots/coverage_saturation/presentation_line1.png", exome_analysis_normal$plot_list$plot_saturation_curve_ci_single_ncells_line,
+       width = 10, height = 3.7)
+ggsave("plots/coverage_saturation/presentation_line2.png", exome_analysis_normal$plot_list$plot_saturation_curve_ci,
+       width = 10, height = 3.7)
 
 exome_analysis_normal$plot_list$plot_saturation_curve_ci
 figure_2D = exome_analysis_normal$plot_list$plot_saturation_age +
@@ -490,11 +504,19 @@ plot_driver_incidence = function(mutation_list, drivers, name, plot_rows = 2, sp
 
   pl = list()
 
-  pl[["line_plot"]] = ggplot(mut_summary, aes(x = x, y = mutated_rate)) +
+  # filter drivers for their tissue-specficiity, and make label so that the number of mutations is annotated
+  driver_summary = driver_summary |>
+    filter(driver_name == "APC R1450*" & tissue == "colon"|
+           driver_name %in% c("KRAS G12D", "TP53 R175H", "KRAS G12V", "BRAF V600E")) |>
+    group_by(tissue) |>
+    mutate(
+      nmuts = format(signif(mutated_rate, 2), scientific = FALSE, trim = TRUE, big.mark = ",", drop0trailing = TRUE),
+      label = paste0(driver_name, ": ", nmuts),
+      max = max(mutated_rate)) |> ungroup()
+
+  pl[["line_plot_nodriver"]] = ggplot(mut_summary, aes(x = x, y = mutated_rate)) +
     geom_line(aes(color = category_tissue), linewidth = 1) +
-    ggrepel::geom_text_repel(data = driver_summary, aes(label = driver_name), force = 3, size = 3,
-                             min.segment.length = 0, nudge_y = driver_summary$mutated_rate * 1.3,) +
-    facet_nested_wrap(. ~ factor(tissue, c("colon", "lung", "blood")) + category,
+     facet_nested_wrap(. ~ factor(tissue, c("colon", "lung", "blood")) + category,
                       nrow = plot_rows, nest_line = element_line(linetype = 1),
                       axes = 'all', scales = "free_y") +
     cowplot::theme_cowplot() +
@@ -505,6 +527,18 @@ plot_driver_incidence = function(mutation_list, drivers, name, plot_rows = 2, sp
           strip.background = element_rect(color = "white", fill = "white")) +
     labs( x = 'All possible single nucleotide variants (SNVs) in the exome sorted by mutation probability',
           y  = 'Number of cells with mutation')
+  pl[["line_plot_nodriver"]]
+
+
+  pl[["line_plot"]]  = pl[["line_plot_nodriver"]] +  ggrepel::geom_text_repel(data = driver_summary, aes(label = label, y =  mutated_rate),
+                                                force = 4, size = 4,min.segment.length = 0,
+                                                nudge_y = driver_summary$mutated_rate * 1.2 + driver_summary$max * 0.3 + 0.1,
+                                                nudge_x = -driver_summary$x*0.5)
+
+
+
+
+
 
   # measurements of unevenness barplot decile:
   mut_deciles = mut_summary |>
@@ -604,7 +638,8 @@ plot_driver_incidence = function(mutation_list, drivers, name, plot_rows = 2, sp
               vjust = -0.2, nudge_x = -0.12) +
     ggpubr::geom_bracket(data = mut_ncells_label, aes(xmin = 0, xmax = 0.5,
                                                       y.position = ymax * 0.15, label = label)) +
-    ggh4x::facet_nested_wrap(. ~ tissue + ncells, nrow = plot_rows, nest_line = element_line(linetype = 1), scale = "free") +
+    ggh4x::facet_nested_wrap(. ~ tissue + ncells, nrow = plot_rows, nest_line = element_line(linetype = 1),
+                             scales = "free") +
     scale_fill_manual(values = tissue_category_colors) +
     scale_y_continuous(expand = expansion(mult = c(0, 0.1)), breaks =  extended_breaks(4)) +
     scale_x_continuous(breaks = c(0,0.5, 1), labels = label_percent()) +
@@ -674,6 +709,9 @@ plot_list_normal_individuals = plot_driver_incidence(mutation_list = exome_norma
                                          drivers = drivers_normal, name = "normal_exome", plot_rows = 1,
                                          specific_individuals = c("O340", "PD34215", "KX008"))
 
+ggsave("plots/coverage_saturation/line_plot_nodriver.png", plot_list_normal$line_plot_nodriver, width = 12, height = 4)
+ggsave("plots/coverage_saturation/line_plot.png", plot_list_normal$line_plot, width = 12, height = 4)
+
 plot_list_normal = plot_driver_incidence(mutation_list = exome_normal_list,
                                                      drivers = drivers_normal, name = "normal_exome", plot_rows = 1,
                                                      specific_individuals = c("O340", "PD34215", "KX008"))
@@ -681,7 +719,6 @@ plot_list_normal = plot_driver_incidence(mutation_list = exome_normal_list,
 save_plots(plot_list_normal, "plots/coverage_saturation/", name = "normal_exome_wide", width = 10, height = 5)
 save_plots(plot_list_normal, "plots/coverage_saturation/", name = "normal_exome", width = 6.5, height = 5)
 ggsave("plots/coverage_saturation/fig1_lorenz_plot.png", plot_list_normal$lorenz_plot, width = 5, height = 4, bg = "white")
-
 
 # TODO make a figures script to fit figure 1 and 2 into:
 figure_1C = prep_plot(plot_list_normal_individuals$barplot_percent_probability, label = "C")
@@ -715,4 +752,3 @@ TP53_plots = plot_driver_incidence(mutation_list = TP53_analysis$result_plot_df,
                                    drivers = drivers[grepl("TP53", driver_name)],
                                    name = "TP53")
 save_plots(TP53_plots, "plots/coverage_saturation/", "TP53_drivers")
-

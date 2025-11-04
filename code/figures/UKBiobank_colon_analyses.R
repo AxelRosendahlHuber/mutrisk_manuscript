@@ -164,9 +164,15 @@ F4F = plot_driver_muts(double_apc_kras, y_axis = "Number of cells with\n doubleA
 
 # make the figures for
 figs = list(F4B = F4B, F4C = F4C, F4D = F4D, F4E = F4E, F4F = F4F)
+
+for (fig_i in names(figs)) {
+  ggsave(paste0("plots/colon/", fig_i, "_colon.png"), figs[[fig_i]], width = 5, height = 4)
+}
+
 annotated_figs = lapply(names(figs), \(x) prep_plot(figs[[x]], substr(x, 3,3)))
 
 c = wrap_plots(annotated_figs, nrow = 1 )
+
 
 # TP53 mutations - check if this needs to be here or in Figure 3 script (the TP53 script)
 TP53_single_driver = expected_rates |>
@@ -211,13 +217,44 @@ mutated_fraction_CRC = cbind(names, risk) |> as_tibble() |>
 mutated_fraction_CRC |> filter(mutation_combination == "APC_double")
 mutated_fraction_CRC |> filter(age == 75)
 
+label_65 = mutated_fraction_CRC |>
+  group_by(mutation_combination) |>
+  filter(age == 65) |>
+  mutate(label = paste0(format(signif(CRC_mut_fraction*100, digits = 2)), "%"))
+
+
 ggplot(mutated_fraction_CRC, aes(x = age, y = CRC_mut_fraction)) +
   geom_point() +
   geom_line() +
+  ggrepel::geom_text_repel(data = label_65, aes(label = label), nudge_x = -15) +
   ggh4x::facet_wrap2(mutation_combination ~ . , nrow = 1, axes = "y" ) +
   scale_y_continuous(breaks = scales::breaks_pretty(2), labels = label_percent()) +
+  scale_x_continuous(limits = c(0, 80)) +
   theme_cowplot() +
   labs(x = "Age (years)", y = "Lifetime risk for CRC with\nspecifc mutation")
+
+# for presentation make figure
+plot_CRC_APC = ggplot(mutated_fraction_CRC |> filter(mutation_combination == "APC_double"), aes(x = age, y = CRC_mut_fraction)) +
+  geom_point() +
+  geom_line() +
+  ggrepel::geom_text_repel(data = label_65 |> filter(mutation_combination == "APC_double"), aes(label = label), nudge_x = -15) +
+  ggh4x::facet_wrap2(mutation_combination ~ . , nrow = 1, axes = "y" ) +
+  scale_y_continuous(breaks = scales::breaks_pretty(2), labels = label_percent()) +
+  scale_x_continuous(limits = c(0, 80)) +
+  theme_cowplot() +
+  labs(x = "Age (years)", y = "Lifetime risk for CRC with\nspecifc mutation")
+ggsave("plots/colon/plot_CRC_APC_plot.png", plot_CRC_APC, width = 5, height = 4)
+
+plot_CRC_KRAS_APC = ggplot(mutated_fraction_CRC |> filter(mutation_combination == "KRAS_APC_double"), aes(x = age, y = CRC_mut_fraction)) +
+  geom_point() +
+  geom_line() +
+  ggrepel::geom_text_repel(data = label_65 |> filter(mutation_combination == "KRAS_APC_double"), aes(label = label), nudge_x = -15) +
+  ggh4x::facet_wrap2(mutation_combination ~ . , nrow = 1, axes = "y" ) +
+  scale_y_continuous(breaks = scales::breaks_pretty(2), labels = label_percent()) +
+  scale_x_continuous(limits = c(0, 80)) +
+  theme_cowplot() +
+  labs(x = "Age (years)", y = "Lifetime risk for CRC with\nspecifc mutation")
+ggsave("plots/colon/plot_CRC_KRAS_APC_plot.png", plot_CRC_KRAS_APC, width = 5, height = 4)
 
 #########################################################
 # overlay the number of expected polyps in the epithelium
@@ -252,3 +289,4 @@ ggplot(ad_incidence_mean, aes(x = age, y = fraction_adenoma_apc)) +
   scale_x_continuous(limits = c(20, 85)) +
   labs(y = "Lifetime risk for Adenoma\nwith APC mutation",
        x = "Age (years)")
+
