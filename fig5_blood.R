@@ -50,21 +50,20 @@ calc_exp_muts = function(expected_rates, mut_positions, metadata, ratios, ncells
 }
 
 
-
 plot_figures = function(driver_sites, y_label) {
   driver_rates = calc_exp_muts(expected_rates, driver_sites, metadata= metadata, ratios = ratios, ncells = ncells)
 
   high_estimate = ggplot(driver_rates,
                aes(x = age, y = mle*13)) +
-    geom_point(color = blood_colors)  +
-    labs(y = y_label, x = "Age (years)", title = "1.3 million HSCs") +
+    geom_pointrange(aes(ymin = cilow*13, ymax = cihigh*13), color = blood_colors)  +
+    labs(y = y_label, x = "Age (years)", subtitle = "1.3 million HSCs") +
     theme_cowplot()
 
 
   mid_estimate = ggplot(driver_rates,
                 aes(x = age, y = mle)) +
-    geom_point(aes(y = mle), color = blood_colors)  +
-    labs(y = y_label, x = "Age (years)", title = "100,000 HSCs") +
+    geom_pointrange(aes(ymin = cilow, ymax = cihigh), color = blood_colors)  +
+    labs(y = y_label, x = "Age (years)", subtitle = "100,000 HSCs") +
     theme_cowplot()
 
   return(list(high_estimate = high_estimate, mid_estimate = mid_estimate))
@@ -73,20 +72,21 @@ plot_figures = function(driver_sites, y_label) {
 
 # DNMT3A driver hotspot
 DNMT3A_R882H_hotspot = CH_bDM[aachange == "R882H" & gene_name == "DNMT3A", .N, c("gene_name", "mut_type", "aachange", "position", "driver")]
-DNMT3A_R882H_hotspot_plots = plot_figures(DNMT3A_R882H_hotspot, "Cells with DNMT3A R882H mutation")
+DNMT3A_R882H_hotspot_plots = plot_figures(DNMT3A_R882H_hotspot, "Number of cells with\nDNMT3A R882H mutation")
 
 DNMT3A_drivers = CH_bDM[gene_name == "DNMT3A" & driver == TRUE , .N, c("gene_name", "mut_type", "aachange", "position", "driver")]
-DNMT3A = plot_figures(DNMT3A_drivers, "Cells with DNMT3A driver mutation")
+DNMT3A = plot_figures(DNMT3A_drivers, "Number of cells with\n DNMT3A driver mutation")
 
 TET2_drivers = CH_bDM[gene_name == "TET2" & driver == TRUE , .N, c("gene_name", "mut_type", "aachange", "position", "driver")]
-TET2 = plot_figures(TET2_drivers, "Cells with TET2 driver mutation")
+TET2 = plot_figures(TET2_drivers, "Number of cells with\nTET2 driver mutation")
 
 TP53_drivers = CH_bDM[gene_name == "TP53" & driver == TRUE , .N, c("gene_name", "mut_type", "aachange", "position", "driver")]
-TP53 = plot_figures(TP53_drivers, "Cells with TP53 driver mutation")
+TP53 = plot_figures(TP53_drivers, "Number of cells with\nTP53 driver mutation")
 
 # make the general figure:
 plots = c(DNMT3A, TET2, TP53)
-wrap_plots(plots, byrow = FALSE)
+F5B = wrap_plots(plots[c(1,3,5)], byrow = FALSE) |> prep_plot(label = "B")
+F5C = wrap_plots(plots[c(2,4,6)], byrow = FALSE) |> prep_plot(label = "C")
 
 
 # get all the driver mutations for the watson figure:
@@ -112,9 +112,7 @@ mutation_list = list(
 F5A = readRDS("processed_data/plots/F5A.rds")
 F5A = prep_plot(F5A, label = "A", t = 8, r = 8, l = 8, b = 8)
 
-
 CH_genes = c("DNMT3A", "TET2", "TP53")
-
 
 # UKbiobank individual counts
 UKB_age_frequencies = fread("raw_data/UKBiobank/UKB_age_frequencies_DNMT3A.tsv") |>
@@ -146,13 +144,8 @@ for (i in 1:3) {
 
   UKB_plot_list[[gene]] = plt
 }
-wrap_plots(UKB_plot_list)
+F5D = wrap_plots(UKB_plot_list) |> prep_plot(label = "D")
 
-
-# also consider making mirror plots for the individiual samples
-
-# TODO: Save the figure still.
-ggsave("manuscript/Figure_5/Figure_5.png", width = 15, height = 9)
-
-
-
+# save final completed plot
+F5A / F5B / F5C / F5D
+ggsave("manuscript/Figure_5/Figure_5.png", width = 12, height = 16)

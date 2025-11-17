@@ -216,7 +216,6 @@ rates = expected_rate_DNMT3A |>
   pivot_wider(names_from = aachange, values_from = mrate)
 
 # rates
-
 df_rate = data.frame(names = c("R882H", "R882C", "R882S", "R882P"),
   yearly_mutation_rate = c(lm(R882H  ~ age, data = rates)$coef[[2]],
   lm(R882C ~ age, data = rates)$coef[[2]],
@@ -233,4 +232,3 @@ ggplot(df_rate, aes(x = names, y = yearly_mutation_rate, fill = names)) +
             vjust = -0.2, position = position_dodge(0.9)) +
   theme(legend.position = "none") +
   labs(y = "yearly mutation rate", x = NULL)
-

@@ -38,65 +38,65 @@ ratios = rbindlist(ratio_list, idcol = "tissue", use.names = TRUE)
 
 # filters
 gene_of_interest = "TP53"
-merge_mutrisk_drivers = function(boostdm, ratios, gene_of_interest, tissue_select = "colon", tissue_name,
-                                 category_select = "normal", cell_probabilities = FALSE,
-                                 individual = FALSE, older_individuals = TRUE) {
+  merge_mutrisk_drivers = function(boostdm, ratios, gene_of_interest, tissue_select = "colon", tissue_name,
+                                   category_select = "normal", cell_probabilities = FALSE,
+                                   individual = FALSE, older_individuals = TRUE) {
 
-  older_individuals = metadata |> filter(tissue == tissue_select,
-                                         category %in% category_select,
-                                         age > 30)
-  ratio_gene_tissue = ratios |> filter(gene_name == gene_of_interest &
-                                         category %in% category_select,
-                                       tissue == tissue_select) |> pull(ratio)
-  expected_rates_select = expected_rates[category %in% category_select &
-                                           tissue == tissue_select, ] |>
-    left_join(older_individuals, by = c("tissue", "sampleID", "category")) |>
-    filter(donor %in% older_individuals$donor)
+    older_individuals = metadata |> filter(tissue == tissue_select,
+                                           category %in% category_select,
+                                           age > 30)
+    ratio_gene_tissue = ratios |> filter(gene_name == gene_of_interest &
+                                           category %in% category_select,
+                                         tissue == tissue_select) |> pull(ratio)
+    expected_rates_select = expected_rates[category %in% category_select &
+                                             tissue == tissue_select, ] |>
+      left_join(older_individuals, by = c("tissue", "sampleID", "category")) |>
+      filter(donor %in% older_individuals$donor)
 
-  ncells_select = tissue_ncells_ci[tissue_ncells_ci$tissue == tissue_select, "mid_estimate"]
+    ncells_select = tissue_ncells_ci[tissue_ncells_ci$tissue == tissue_select, "mid_estimate"]
 
-  if (cell_probabilities == TRUE) {
-    ncells_select = 1
+    if (cell_probabilities == TRUE) {
+      ncells_select = 1
+    }
+
+    # group by donor individually
+    mutated_rates = expected_rates_select |>
+      group_by(donor, mut_type, tissue) |>
+      summarize(across(c(mle, cilow, cihigh), mean), .groups = "drop") |>
+      mutate(across(c(mle, cilow, cihigh), ~ . * ratio_gene_tissue * ncells_select))
+
+    # modify for specific individual, or for the entiriety
+    if (individual == FALSE) {
+      print("taking mean of the mutation rates")
+
+      mutated_rates_select = mutated_rates |>
+        group_by(mut_type, tissue) |>
+        summarize(mle = mean(mle))
+
+      individuals = older_individuals |>
+        select(donor, age) |> distinct()
+
+      label = paste(tissue_name, "- average age:", format(mean(individuals$age), digits = 3))
+
+
+    } else if (individual %in% unique(mutated_rates$donor)) {
+      mutated_rates_select = mutated_rates |>
+        filter(donor == individual) |>
+        select(mut_type, tissue, mle)
+
+      label = paste(category_select, "donor", individual, " age:", older_individuals[donor == individual] |> pull(age))
+
+    }  else if (individual == "all") {
+      mutated_rates_select = mutated_rates
+      label = "no_label"
+    }   else {print("parameter 'individual' must either be FALSE, or donor-id")}
+
+    boostdM_goi = boostdm[gene_name == gene_of_interest, c("mut_type", "position", "driver")]
+    expected_gene_muts = boostdM_goi |>
+      full_join(mutated_rates_select, relationship = "many-to-many", by = "mut_type")
+
+    return(list(expected_gene_muts = expected_gene_muts, label = label))
   }
-
-  # group by donor individually
-  mutated_rates = expected_rates_select |>
-    group_by(donor, mut_type, tissue) |>
-    summarize(across(c(mle, cilow, cihigh), mean), .groups = "drop") |>
-    mutate(across(c(mle, cilow, cihigh), ~ . * ratio_gene_tissue * ncells_select))
-
-  # modify for specific individual, or for the entiriety
-  if (individual == FALSE) {
-    print("taking mean of the mutation rates")
-
-    mutated_rates_select = mutated_rates |>
-      group_by(mut_type, tissue) |>
-      summarize(mle = mean(mle))
-
-    individuals = older_individuals |>
-      select(donor, age) |> distinct()
-
-    label = paste(tissue_name, "- average age:", format(mean(individuals$age), digits = 3))
-
-
-  } else if (individual %in% unique(mutated_rates$donor)) {
-    mutated_rates_select = mutated_rates |>
-      filter(donor == individual) |>
-      select(mut_type, tissue, mle)
-
-    label = paste(category_select, "donor", individual, " age:", older_individuals[donor == individual] |> pull(age))
-
-  }  else if (individual == "all") {
-    mutated_rates_select = mutated_rates
-    label = "no_label"
-  }   else {print("parameter 'individual' must either be FALSE, or donor-id")}
-
-  boostdM_goi = boostdm[gene_name == gene_of_interest, c("mut_type", "position", "driver")]
-  expected_gene_muts = boostdM_goi |>
-    full_join(mutated_rates_select, relationship = "many-to-many", by = "mut_type")
-
-  return(list(expected_gene_muts = expected_gene_muts, label = label))
-}
 
 
 make_gene_barplot = function(boostdm, ratios, gene_of_interest,
@@ -262,7 +262,7 @@ df_total_muts = boxplot_df |>
   left_join(metadata |> select(-sampleID) |> distinct()) |>
   mutate(category = factor(category, levels = unique(color_df$category)))
 
-tissue_plots = list()
+tissue_plots = tissue_plots_raw =  list()
 tissue_order = c("colon", "lung", "blood")
 for (i in 1:3) {
 
@@ -280,8 +280,14 @@ for (i in 1:3) {
     theme(panel.grid = element_blank(), strip.background = element_blank(),
           legend.position = "none", ggh4x.facet.nestline = element_line()) +
     labs(x = "Age (years)", y = "Number of cells with\nTP53 driver mutation")
+  tissue_plots_raw[[select_tissue]] = plt
   tissue_plots[[select_tissue]] = prep_plot(plt, LETTERS[i+2])
 }
+
+
+tissue_plots_raw[[2]] = tissue_plots_raw[[2]] + labs(y = NULL)
+tissue_plots_raw[[3]] = tissue_plots_raw[[3]] + labs(y = NULL)
+poster = wrap_plots(tissue_plots_raw, nrow = 1, widths = c(4, 3, 1.2))
 
 F3C = wrap_plots(tissue_plots, nrow = 1, widths = c(4, 3, 1.2))
 F3C

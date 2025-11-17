@@ -148,7 +148,7 @@ plot_driver_muts = function(driver_rates, y_axis = "INSERT TITLE") {
     mutate(across(c(mle, cilow, cihigh), ~ . * ncells)) |>
     ggplot(aes(x = age, y = mle, color = category)) +
     geom_pointrange(aes(ymin = cilow, ymax = cihigh)) +
-    scale_y_continuous(labels = scales::label_comma()) +
+    scale_y_continuous(labels = scales::label_comma(), limits = c(0, NA)) +
     scale_color_manual(values = colors) +
     theme_cowplot() +
     labs(y = y_axis, x = "Age (years)") +
