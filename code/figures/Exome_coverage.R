@@ -720,34 +720,24 @@ save_plots(plot_list_normal, "plots/coverage_saturation/", name = "normal_exome_
 save_plots(plot_list_normal, "plots/coverage_saturation/", name = "normal_exome", width = 6.5, height = 5)
 ggsave("plots/coverage_saturation/fig1_lorenz_plot.png", plot_list_normal$lorenz_plot, width = 5, height = 4, bg = "white")
 
-# TODO make a figures script to fit figure 1 and 2 into:
-figure_1C = prep_plot(plot_list_normal_individuals$barplot_percent_probability, label = "C")
-figure_1D = prep_plot(plot_list_normal$lorenz_plot, label = "D")
-
-figure_1 = figure_1C + figure_1D +
-  plot_layout(widths = c(2.5, 1), )
-figure_1
-
+# prepare figures for saving and formatting as a single figure
+# save Figure 1 panels to be used in main figure script
+saveRDS(plot_list_normal_individuals$barplot_percent_probability, "manuscript/figure_panels/figure_1/figure_1C.rds")
+saveRDS(plot_list_normal$lorenz_plot, "manuscript/figure_panels/figure_1/figure_1D.rds")
 
 # Figure 2:
 figure_2A = prep_plot(exome_analysis_normal$plot_list$plot_saturation_curve_ci, label = "A")
-
 figure_2C = exome_analysis_normal$plot_list$plot_saturation_age +
   theme(legend.position = "inside", legend.position.inside = c(0.75, 0.5)) +
   labs(fill = NULL, title = NULL, subtitle = NULL, x = 'Age (years)') +
   scale_fill_manual(labels = c("blood", "colon", "lung"), values = tissue_category_colors)
-figure_2C = prep_plot(figure_2C, label = "C")
-figure_2D = prep_plot(plot_list_normal$line_plot, label = "D")
 
-figure_2_middle =  plot_spacer() + figure_2C +
-  plot_layout(widths = c(1.5, 1))
-figure_2 = figure_2A / figure_2_middle / figure_2D
+# save the individual figures (raw - so margins can be adjusted):
+saveRDS(exome_analysis_normal$plot_list$plot_saturation_curve_ci, "manuscript/figure_panels/figure_2/figure_2A.rds")
+saveRDS(figure_2C, "manuscript/figure_panels/figure_2/figure_2C.rds")
+saveRDS(plot_list_normal$line_plot, "manuscript/figure_panels/figure_2/figure_2D.rds")
 
-# save figures:
-ggsave("manuscript/Figure_1/figure_1CD.png", figure_1, width = 16, height = 5)
-ggsave("manuscript/Figure_2/figure_2.png", figure_2, width = 14, height = 14)
-
-  # exploration of mutation distribution plots for TP53 driver mutations:
+# exploration of mutation distribution plots for TP53 driver mutations:
 TP53_plots = plot_driver_incidence(mutation_list = TP53_analysis$result_plot_df,
                                    drivers = drivers[grepl("TP53", driver_name)],
                                    name = "TP53")

@@ -156,7 +156,7 @@ prob_barplot_blood = make_gene_barplot(boostdm, ratios, gene_of_interest = "TP53
 prob_barplot_colon = make_gene_barplot(boostdm, ratios, gene_of_interest = "TP53", tissue_select = "colon",
                                        individual = "O340", cell_probabilities = TRUE) + labs(title = "TP53", subtitle = NULL)
 F1B = wrap_plots(prob_barplot_colon, prob_barplot_lung, prob_barplot_blood, ncol = 3, guides = "collect")
-prep_plot(F1B, label = "B")
+saveRDS(F1B, "manuscript/figure_panels/figure_1/figure_1B.rds")
 
 barplot_colon = make_gene_barplot(boostdm, ratios, gene_of_interest = "TP53", tissue_select = "colon",
                                   tissue_name = "Colon", cell_probabilities = FALSE) + labs(y = NULL)
@@ -167,6 +167,7 @@ barplot_blood = make_gene_barplot(boostdm, ratios, gene_of_interest = "TP53", ti
                                   tissue_name = "Blood", cell_probabilities = FALSE) + labs(y = NULL)
 F3A = wrap_plots(barplot_colon, barplot_lung, barplot_blood, ncol = 1, guides = "collect") &
   labs(title = NULL)
+saveRDS(F3A, "manuscript/figure_panels/figure_3/figure_3A.rds")
 
 
 # barplot APC plot
@@ -284,9 +285,10 @@ for (i in 1:3) {
   tissue_plots[[select_tissue]] = prep_plot(plt, LETTERS[i+2])
 }
 
-
 tissue_plots_raw[[2]] = tissue_plots_raw[[2]] + labs(y = NULL)
 tissue_plots_raw[[3]] = tissue_plots_raw[[3]] + labs(y = NULL)
+
+saveRDS(tissue_plots_raw, "manuscript/figure_panels/figure_3/figure_3CDE.rds")
 poster = wrap_plots(tissue_plots_raw, nrow = 1, widths = c(4, 3, 1.2))
 
 F3C = wrap_plots(tissue_plots, nrow = 1, widths = c(4, 3, 1.2))
@@ -323,4 +325,5 @@ F3C = df_mean_muts |>
   theme(legend.position = "none") +
   labs(y = "number of cells with TP53 mutations", x = NULL)
 F3C
+
 
