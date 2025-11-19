@@ -169,10 +169,9 @@ for (fig_i in names(figs)) {
   ggsave(paste0("plots/colon/", fig_i, "_colon.png"), figs[[fig_i]], width = 5, height = 4)
 }
 
+saveRDS(figs, "manuscript/figure_panels/figure_4/figures_B-F.rds")
 annotated_figs = lapply(names(figs), \(x) prep_plot(figs[[x]], substr(x, 3,3)))
-
 c = wrap_plots(annotated_figs, nrow = 1 )
-
 
 # TP53 mutations - check if this needs to be here or in Figure 3 script (the TP53 script)
 TP53_single_driver = expected_rates |>
@@ -232,6 +231,26 @@ ggplot(mutated_fraction_CRC, aes(x = age, y = CRC_mut_fraction)) +
   scale_x_continuous(limits = c(0, 80)) +
   theme_cowplot() +
   labs(x = "Age (years)", y = "Lifetime risk for CRC with\nspecifc mutation")
+
+# make a new figure splitting all the individual panels into separate ones (so that we can identify the labels)
+
+for (i in unique(mutated_fraction_CRC$mutation_combination)) {
+  mutated_fraction_CRC |>
+    filter(mutation_combination %in% i) |>
+    ggplot(aes(x = age, y = CRC_mut_fraction)) +
+    geom_point() +
+    geom_line() +
+    ggrepel::geom_text_repel(data = label_65, aes(label = label), nudge_x = -15) +
+    ggh4x::facet_wrap2(mutation_combination ~ . , nrow = 1, axes = "y" ) +
+    scale_y_continuous(breaks = scales::breaks_pretty(2), labels = label_percent()) +
+    scale_x_continuous(limits = c(0, 80)) +
+    theme_cowplot() +
+    labs(x = "Age (years)", y = "Lifetime risk for CRC with\nspecifc mutation")
+
+
+}
+
+
 
 # for presentation make figure
 plot_CRC_APC = ggplot(mutated_fraction_CRC |> filter(mutation_combination == "APC_double"), aes(x = age, y = CRC_mut_fraction)) +

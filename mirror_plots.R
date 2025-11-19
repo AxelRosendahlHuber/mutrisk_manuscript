@@ -147,7 +147,6 @@ make_gene_barplot = function(boostdm, ratios, gene_of_interest,
   pl
 }
 
-
 # make the probabilities for Figure 1B
 prob_barplot_lung = make_gene_barplot(boostdm, ratios, gene_of_interest = "TP53", tissue_select = "lung", category_select = "non-smoker",
                                       individual = "PD34215",cell_probabilities = TRUE) + labs(title = "TP53", subtitle = NULL, y = NULL)
@@ -219,13 +218,10 @@ F4A = F4A1 / F4A2 & labs(subtitle = NULL, y = NULL) &
   scale_y_continuous(expand = expansion(mult = c(0, 0.1))) #& plot_layout(guides = "collect")
 F4A = wrap_elements(F4A) +
   labs(tag = "Number of cells with mutation") +
-  theme(
-    plot.tag = element_text(size = rel(1.3), angle = 90),
-    plot.tag.position = "left"
-  )
-F4A = F4A + plot_annotation(title =  "A") +
-  theme(plot.title = element_text(size = 20))
-F4A
+  theme(plot.tag = element_text(size = rel(1.3), angle = 90),
+        plot.tag.position = "left")
+
+saveRDS(F4A, "manuscript/figure_panels/figure_4/figures_A.rds")
 
 # make function, inputting the boostdm driver mutations, and the expected rates.
 # this will become the plot
@@ -237,7 +233,6 @@ F4A
 #         legend.text = element_text(size = rel(0.8)),
 #         legend.title = element_text(size = rel(0.8)),
 #         legend.key.size = unit(0.8, "lines"), legend.background = element_blank())
-
 
 boxplot_list = list()
 for (i in 1:nrow(color_df)) {

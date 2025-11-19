@@ -1,9 +1,9 @@
 library(patchwork)
 library(tidyverse)
 library(figpatch)
+source("code/functions/analysis_variables.R")
 
 # Figure 1:
-
 # load figure 1 graphic:
 mg = 7 # set margins
 figure_1A <- fig("manuscript/figure_panels/figure_1/Figure 1A.png") |> prep_plot(label = "A", all_margin = 0)
