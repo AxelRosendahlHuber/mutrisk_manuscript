@@ -145,11 +145,12 @@ exome_counts_plot = ggplot(count_category, aes(x = id, y = corrected_exome, grou
   geom_text(data = means, aes(x = n_samples/4, y = mean, label = round(mean, 1)), color = "black", vjust = -0.5, hjust = 0.2) +
   facet_nested(~ tissue + category,  scales = "free_x") +
   theme_bw() +
-  scale_y_log10() +
+  scale_y_log10(guide = "axis_logticks") +
   scale_color_manual(values = tissue_category_colors[-2]) +
   labs(x = NULL, y = "Exonic mutations/cell") +
-  theme(panel.grid = element_blank(), axis.ticks.x = element_blank(), axis.text.x = element_blank(), strip.background = element_blank(),
-        legend.position = "none", ggh4x.facet.nestline = element_line())
+  theme(panel.grid = element_blank(),  axis.ticks.x = element_blank(), axis.text.x = element_blank(),
+        strip.background = element_blank(), legend.position = "none",
+        ggh4x.facet.nestline = element_line())
 exome_counts_plot
 ggsave("manuscript/Supplementary_Figures/Figure_S1/count_genome_category.png", exome_counts_plot, width = 12, height = 4)
 ggsave("manuscript/Supplementary_Figures/Figure_S1/supplementary_figure_1.png", exome_counts_plot, width = 12, height = 4)
@@ -501,4 +502,6 @@ ggsave("manuscript/Schematic_poster_presentations/100Kb_genomic_rate.png", genom
 #   theme(plot.margin =  margin(5,5,5,5, unit = "mm"),  plot.tag = element_text(face = 'bold'))
 # ggsave("plots/manuscript/main_figures/figure_1.png", Figure_1, width = 13, height = 13, bg = "white")
 # ggsave("plots/manuscript/main_figures/figure_1.svg", Figure_1, width = 13, height = 13, bg = "white")
+
+
 

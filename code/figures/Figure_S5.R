@@ -38,17 +38,17 @@ expected_rate_APC_1450[category == "normal" & age > 35 , mle] |> mean()
 setDT(expected_rate_APC_1450)[category == "normal" & age > 35, mle] |> min()
 setDT(expected_rate_APC_1450)[category == "normal" & age > 35, mle] |> max()
 
-figure_2a = ggplot(expected_rate_APC_1450, aes(x = age, y = mle, fill = category)) +
-  geom_errorbar(aes(ymin = cilow, ymax = cihigh, color = category), width = 0, show.legend = FALSE) +
-  geom_point(shape = 21, size = 2.4, color = "white", stroke = 0.3) +
-  scale_fill_manual(values = colon_colors) +
-  scale_color_manual(values = colon_colors) +
-  theme_cowplot() +
-  labs(subtitle = "N cells with APC R1450*", y = "number of cells",
-       x = "Age (years)", fill = NULL) +
-  theme(legend.position = "inside", legend.position.inside = c(0.05,0.8 ))
-figure_2a
-ggsave("plots/colon/Figure_2A.png", width = 5, height = 4.5, bg = "white")
+# figure_2a = ggplot(expected_rate_APC_1450, aes(x = age, y = mle, fill = category)) +
+#   geom_errorbar(aes(ymin = cilow, ymax = cihigh, color = category), width = 0, show.legend = FALSE) +
+#   geom_point(shape = 21, size = 2.4, color = "white", stroke = 0.3) +
+#   scale_fill_manual(values = colon_colors) +
+#   scale_color_manual(values = colon_colors) +
+#   theme_cowplot() +
+#   labs(subtitle = "N cells with APC R1450*", y = "number of cells",
+#        x = "Age (years)", fill = NULL) +
+#   theme(legend.position = "inside", legend.position.inside = c(0.05,0.8 ))
+# figure_2a
+# ggsave("plots/colon/Figure_2A.png", width = 5, height = 4.5, bg = "white")
 
 
 # expected rate KRAS driver
@@ -278,6 +278,13 @@ plot_apc_double_drivers_normal = plot_mrate(mrate_APC_double_drivers |> filter(c
   labs(subtitle = "normal tissue - using all cells averaged for each donor")
 ggsave("plots/colon/ncells_APC_double_drivers_normal_points.png", plot_apc_double_drivers_normal,  width = 6, height = 5, bg = "white")
 
+# taking into account the diversity between different mutational programmes
+mrate_APC_double_drivers_fraction = get_double_gene_rate_fraction(exp_rates = expected_rates, metadata = metadata,
+                                                                site_freqs = site_freqs_APC_drivers, ratios = ratios, ncells = ncells)
+plot_mrate(mrate_APC_double_drivers_fraction, title = "number of cells with double APC driver mutations - fraction method", colors = colon_colors) +
+  ggforce::facet_zoom(ylim = c(0, 10), zoom.size = 1)
+ggsave("plots/colon/ncells_APC_double_drivers_points_fractions.png", width = 10, height = 5, bg = "white")
+
 # Manuscript: make general overview table of the different conditions. This can be a supplementary or main figure table
 mrate_APC_double_drivers_fraction |>
   filter(category == "normal" & age > 35) |>
@@ -323,255 +330,256 @@ rbindlist(list(`diversity clones` = mrate_APC_double_drivers_fraction |> filter(
         legend.position = "inside", legend.position.inside = c(0.02, 0.9)) +
   labs(y = "predicted number of cells with double mutation", x = NULL, color = "computing method",
        subtitle = "Comparison calculation methods # cells with two APC driver mutations")
-ggsave("plots/colon/Supplementary_figure_5.png", width = 7, height = 6, bg = 'white')
-
-# all TP53 driver muts:
-site_freqs_TP53_drivers = cancer_bDM[gene_name == "TP53" & driver == TRUE,  .N, by = c("mut_type", "gene_name")]
-mrate_TP53_drivers = get_gene_rate(exp_rates = expected_rates, metadata = metadata,
-                                   site_freqs = site_freqs_TP53_drivers, ratios = ratios, ncells = ncells)
-plot_TP53_drivers = plot_mrate(mrate_TP53_drivers, title = "number of cells with TP53 driver mutations", colors = colon_colors) +
-  scale_y_continuous(sec.axis = sec_axis(name = "% of cells with mutation", ~ . / ncells, labels = label_percent()),
-                     labels = label_comma())
-ggsave("plots/colon/ncells_TP53_drivers.png", plot_TP53_drivers, width = 5.5, height = 4.2, bg = "white")
-
-plot_mrate(mrate_TP53_drivers |> filter(category == "normal"), title = "number of cells with TP53 driver mutations", colors = colon_colors) +
-  labs(subtitle = "normal tissue") +
-  scale_y_continuous(sec.axis = sec_axis(name = "% of cells with mutation", ~ . / ncells, labels = label_percent()),
-                     labels = label_comma())
-ggsave("plots/colon/ncells_TP53_drivers_normal.png", width = 5.5, height = 4.2, bg = "white")
-
-###
-# signature-specific modeling of APC mutation rates
-###
-
-# make function to mask all other signature contributions:
-mask_sigs = function(mrate_sigs, select_sigs = c("SBS1", "SBS5", "SBS18", "SBS88"), value_columns = c("mle", "cilow", "cihigh")) {
-  mrate_sigs |>
-    mutate(signature = case_when(!signature %in% c(select_sigs) ~ "other", .default = signature)) |>
-    group_by(across(-any_of(value_columns))) |>
-    summarize(across(any_of(value_columns), sum), .groups = "drop")
-}
-
-# Load signature specific mutation rates
-signature_rates = fread("processed_data/colon/colon_sig_patient_rates.tsv.gz") |>
-  dplyr::rename(mut_type = name, mle = value) |>
-  left_join(metadata, relationship = "many-to-many") |>
-  mutate(category = factor(category, levels = levels(metadata$category))) |>
-  mask_sigs(select_sigs = c("SBS1", "SBS10a", "SBS10b", "SBS10c", "SBS10d", "SBS13", "SBS2", "SBS5", "SBS88", "SBS89", "SBS18"))
-
-# mrate APC all muts:
-site_freqs_APC = cancer_bDM[gene_name == "APC" & driver == TRUE, .N, by = c("mut_type", "gene_name")]
-mrate_sigs_APC_driver = get_gene_rate_sig(exp_rates = signature_rates, metadata,
-                                          site_freqs = site_freqs_APC, ratios = ratios)
-
-plot_signature_rates_APC_all_muts = mrate_sigs_APC_driver |>
-  mutate(mle = mle * ncells) |>
-  group_by(age, signature, category) |>
-  summarize(mle = mean(mle)) |>
-  ggplot(aes(x = age, y = mle, fill = signature)) +
-  geom_col()  +
-  facet_grid(. ~ category) +
-  scale_fill_manual(values = sig_colors) +
-  theme_cowplot() +
-  panel_border()  +
-  scale_y_continuous(expand=expansion(mult=c(0,0.1)), labels = label_comma(),
-                     sec.axis = sec_axis(name = "% of cells with mutation", ~ . / ncells, labels = scales::label_percent())) +
-  theme(legend.position = "inside", legend.position.inside = c(0.05, 0.65), legend.key.size = unit(4, "mm"), legend.title = element_blank())+
-  labs(y = "number of mutated cells", x = "Age (years)", subtitle = "APC mutated cells - all muts")
-plot_signature_rates_APC_all_muts
-ggsave("plots/colon/number_of_cells_mutated_by_sig_APC.png", plot_signature_rates_APC_all_muts, width = 10, height = 4.2, bg = "white")
-
-# mrate APC driver muts
-mrate_sigs_APC_driver = get_gene_rate_sig(exp_rates = signature_rates, metadata, site_freqs = site_freqs_APC_drivers, ratios = ratios)
-plot_signature_rates_APC_drivers = mrate_sigs_APC_driver |>
-  mutate(mle = mle * ncells) |>
-  group_by(age, signature, category) |>
-  summarize(mle = mean(mle)) |>
-  ggplot(aes(x = age, y = mle, fill = signature)) +
-  geom_col()  +
-  facet_grid(. ~ category) +
-  scale_fill_manual(values = sig_colors) +
-  theme_cowplot() +
-  panel_border()  +
-  scale_y_continuous(expand=expansion(mult = c(0,0.1)), labels = label_comma()) +
-  theme(legend.position = "inside", legend.position.inside = c(0.05, 0.65), legend.key.size = unit(4, "mm"), legend.title = element_blank()) +
-  labs(y = "number of mutated cells", x = "Age (years)", subtitle = "Cells with APC driver muatations")
-ggsave("plots/colon/number_of_cells_mutated_by_sig_driver.png", plot_signature_rates_APC_drivers,  width = 10, height = 4.2, bg = "white")
-
-# get hotspot mutation levels for colon
-APC_1450_hotspot_sig_rates = APC_1450_hotspot |>
-  left_join(signature_rates, by = "mut_type") |>
-  left_join(metadata) |>
-  group_by(age, signature, category) |>
-  summarize(mle = mean(mle))
-
-normal_APC_1450_rates = APC_1450_hotspot_sig_rates |>
-  filter(category == "normal") |>
-  mask_sigs()
-
-plot_APC_1450_hotspot = ggplot(normal_APC_1450_rates, aes(x = age, y = mle * ncells, fill = signature)) +
-  geom_col() +
-  theme_cowplot() +
-  theme(legend.position = "inside", legend.position.inside = c(0.05, 0.8)) +
-  scale_y_continuous(expand=expansion(mult=c(0,0.1)),
-                     sec.axis = sec_axis(name = "% of cells with mutation", ~ . / ncells, labels = scales::label_percent()))  +
-  scale_fill_manual(values = sig_colors) +
-  labs(subtitle = "Colonic crypts with R1450* APC hotspot mutations", y = "Number of cells", x = "Age (years)")
-ggsave("plots/colon/R1450_stop_rates_normal.png", plot_APC_1450_hotspot, width = 5, height = 4, bg = "white")
-
-plot_APC_1450_hotspot_all = ggplot(APC_1450_hotspot_sig_rates, aes(x = age, y = mle * ncells, fill = signature)) +
-  geom_col() +
-  facet_grid(. ~ category) +
-  theme_cowplot() +
-  scale_y_continuous(expand=expansion(mult=c(0,0.1)))  +
-  scale_fill_manual(values = sig_colors) +
-  labs(subtitle = "Colonic crypts with R1450* APC hotspot mutations", y = "Number of cells", x = "Age (years)")
-ggsave("plots/colon/R1450_stop_rates_all.png", plot_APC_1450_hotspot_all,  width = 10, height = 4, bg = "white")
-
-####
-# mutation rates for individual clones by donor
-####
-apc_total = cancer_bDM[gene_name == "APC",.N, by = c("mut_type", "gene_name", "consequence")]
-consequence_rates = apc_total |>
-  left_join(signature_rates |>
-              filter(category == "normal"), relationship = "many-to-many", by = "mut_type") |>
-  left_join(ratios)  |>
-  mutate(mle = mle * N * ncells * ratio) |>
-  group_by(consequence, sampleID, signature) |>
-  summarize(mle = sum(mle)) |>
-  left_join(metadata)
-
-# for manuscript: average number of consequence type in normal tissues
-mean_consequence_rates = consequence_rates |>
-  left_join(metadata) |>
-  filter(age > 35) |>
-  group_by(consequence, age, sampleID) |>
-  summarize(mle = sum(mle), .groups = "drop_last") |>
-  summarize(mle = mean(mle), .groups = "drop_last") |>
-  summarize(mean_mle = mean(mle), min = min(mle), max = max(mle))
-
-# manuscript: the outlier with high SBS88 profile
-consequence_rates |>
-  left_join(metadata) |>
-  filter(age > 34) |>
-  filter(category == "normal" & consequence == "splicing") |>
-  group_by(donor, age,  sampleID) |>
-  summarize(mle = sum(mle), .groups = "drop_last") |>
-  summarize(mle = mean(mle))  |> arrange(desc(mle))
-
-consequence_rates |>
-  left_join(metadata) |>
-  filter(age > 34) |>
-  filter(category == "normal" & consequence == "splicing")  |>
-  ungroup() |>
-  select(donor, age) |> distinct() |>
-  filter(age == 36)
-
-metadata |> select(donor, age, category) |> distinct() |>
-  filter(age == 36)
-
-
-# apc mut types drivers
-apc_total_drivers = cancer_bDM[gene_name == "APC" & driver == TRUE, .N, by = c("mut_type", "gene_name", "driver")]
-driver_rates = apc_total_drivers |>
-  left_join(signature_rates, relationship = "many-to-many", by = "mut_type") |>
-  left_join(ratios[gene_name == "APC",])  |>
-  mutate(mle = mle * N * ncells * ratio) |>
-  group_by(driver, sampleID, signature) |>
-  summarize(mle = sum(mle)) |>
-  arrange(driver, sampleID, signature)
-
-driver_muts = driver_rates |> left_join(metadata) |>
-  group_by(category, age, signature, driver) |>
-  summarize(mle = mean(mle))
-
-# calculate the mutation rate for all drivers
-# get the double rates, in a fraction-based approach
-# first, all signatures
-APC_sig_rates = get_gene_rate_sig(exp_rates = signature_rates, metadata = metadata,
-                                  site_freqs = site_freqs_APC_drivers, ratios = ratios)
-SBS88_percentage = APC_sig_rates |>
-  group_by(donor, signature) |>
-  summarize(mle = mean(mle)) |>
-  mutate(mle, mle /sum(mle))  |>
-  filter(signature == "SBS88")
-
-expected_rates = signature_rates |>
-  group_by(category, sampleID, mut_type) |>
-  summarise(mle = sum(mle)) |>
-  arrange(category, mut_type, sampleID)
-
-drivers2_all = get_double_gene_rate_fraction(exp_rates = expected_rates, metadata = metadata,
-                                             site_freqs = site_freqs_APC_drivers, ratios = ratios, ncells = ncells)
-
-expected_rates_nocb = signature_rates |>
-  filter(signature != "SBS88") |>
-  group_by(category, sampleID, mut_type) |>
-  summarise(mle = sum(mle)) |>
-  arrange(category, mut_type, sampleID)
-drivers2_nocb = get_double_gene_rate_fraction(exp_rates = expected_rates_nocb, metadata = metadata,
-                                              site_freqs = site_freqs_APC_drivers, ratios = ratios, ncells = ncells)
-
-expected_cb_muts = list(all_sigs = drivers2_all, no_colibactin = drivers2_nocb) |>
-  rbindlist(idcol = "type") |>
-  filter(category == "normal") |>
-  mutate(type = fct_relevel(type,  "no_colibactin", "all_sigs")) |>
-  arrange(type)
-
-# get the average rates for the individual cells
-gene_muts = cancer_bDM[gene_name == "APC" , c("chr", "pos", "gene_name", "mut_type", "aachange", "position")]
-expected_rate_pos_sc = expected_rates |>
-  inner_join(gene_muts, by = "mut_type", relationship = "many-to-many") |>
-  left_join(metadata) |>
-  left_join(ratios) |>
-  mutate(mle = mle* ratio)
-
-# Make the full plots using patchwork
-empty_plot = ggplot() + cowplot::theme_nothing()
-plot_list = list(empty_plot = empty_plot,
-                 plot_APC_1450_hotspot = plot_APC_1450_hotspot,
-                 plot_consequence_APC = plot_consequence_APC,
-                 plot_muts_driver_normal = plot_muts_driver_normal,
-                 plot_APC_drivers_normal = plot_APC_drivers_normal,
-                 plot_apc_double_drivers_normal = plot_apc_double_drivers_normal,
-                 rel_difference_plot_colibactin = rel_difference_plot_colibactin,
-                 plot_signature_rates_APC_drivers = plot_signature_rates_APC_drivers,
-                 plot_double_all = plot_double_all,
-                 plot_TP53_drivers = plot_TP53_drivers)
-
-mg = 10
-pl = lapply(plot_list, "+",  theme(plot.margin = margin(mg, mg, mg, mg, unit = "mm")))
-
-row1 = wrap_plots(pl$empty_plot, pl$plot_APC_1450_hotspot, pl$plot_consequence_APC, nrow = 1, widths = c(1,1,1.5))
-row2 = wrap_plots(pl$plot_muts_driver_normal, pl$plot_APC_drivers_normal, pl$plot_apc_double_drivers_normal, nrow = 1)
-row3 = wrap_plots(pl$rel_difference_plot_colibactin, pl$plot_signature_rates_APC_drivers, nrow = 1, widths =  c(1, 2))
-row4 = wrap_plots(pl$plot_double_all, pl$plot_TP53_drivers,  nrow = 1, widths = c(2, 1))
-
-figure_2 = wrap_plots(row1, row2, row3, row4, ncol = 1) + plot_annotation(tag_levels = "A")
-ggsave("plots/manuscript/main_figures/figure_2.svg", figure_2, width = 22, height = 19, bg = "white", dpi = 600)
-ggsave("plots/manuscript/main_figures/figure_2.png", figure_2, width = 19, height = 20, bg = "white", dpi = 600)
-
-figure_2
-
-# APC rates for a single cell
-apc_double_driver_sc = apc_double_driver |>
-  mutate(across(c(mle, cilow, cihigh), ~ ./ ncells)) |>
-  arrange(category, donor, age)
-
-# make a dataframe with the relative mutation rates for all the different changes:
-vogelgram_mut_risks_sc = tibble(
-  category = apc_double_driver_sc$category,
-  donor = apc_double_driver_sc$donor,
-  age = apc_double_driver_sc$age,
-  `APC 2x SNV` = apc_double_driver_sc$mle,
-  KRAS_driver = expected_rate_KRAS_driver_sc$mle) |>
-  mutate(`APC 2x +KRAS` = `APC 2x SNV` * KRAS_driver)
-
-vogelgram_mut_risks = vogelgram_mut_risks_sc |>
-  mutate(across(-c(category, donor, age), ~ . * ncells))
-
-vogelgram_mut_risks_long = vogelgram_mut_risks |>
-  filter(category == "normal") |>
-  pivot_longer(-c(category, donor, age), names_to = "mutation", values_to = "expected_mutated_cells")
-
-saveRDS(vogelgram_mut_risks_long, "processed_data/colon/vogelgram_plot.rds")
+ggsave("manuscript/Supplementary_Figures/Figure_S5/Figure_S5.png", width = 7, height = 6, bg = 'white')
+ggsave("manuscript/Supplementary_Figures/Figure_S5/Figure_S5.pdf", width = 7, height = 6, bg = 'white')
+#
+# # all TP53 driver muts:
+# site_freqs_TP53_drivers = cancer_bDM[gene_name == "TP53" & driver == TRUE,  .N, by = c("mut_type", "gene_name")]
+# mrate_TP53_drivers = get_gene_rate(exp_rates = expected_rates, metadata = metadata,
+#                                    site_freqs = site_freqs_TP53_drivers, ratios = ratios, ncells = ncells)
+# plot_TP53_drivers = plot_mrate(mrate_TP53_drivers, title = "number of cells with TP53 driver mutations", colors = colon_colors) +
+#   scale_y_continuous(sec.axis = sec_axis(name = "% of cells with mutation", ~ . / ncells, labels = label_percent()),
+#                      labels = label_comma())
+# ggsave("plots/colon/ncells_TP53_drivers.png", plot_TP53_drivers, width = 5.5, height = 4.2, bg = "white")
+#
+# plot_mrate(mrate_TP53_drivers |> filter(category == "normal"), title = "number of cells with TP53 driver mutations", colors = colon_colors) +
+#   labs(subtitle = "normal tissue") +
+#   scale_y_continuous(sec.axis = sec_axis(name = "% of cells with mutation", ~ . / ncells, labels = label_percent()),
+#                      labels = label_comma())
+# ggsave("plots/colon/ncells_TP53_drivers_normal.png", width = 5.5, height = 4.2, bg = "white")
+#
+# ###
+# # signature-specific modeling of APC mutation rates
+# ###
+#
+# # make function to mask all other signature contributions:
+# mask_sigs = function(mrate_sigs, select_sigs = c("SBS1", "SBS5", "SBS18", "SBS88"), value_columns = c("mle", "cilow", "cihigh")) {
+#   mrate_sigs |>
+#     mutate(signature = case_when(!signature %in% c(select_sigs) ~ "other", .default = signature)) |>
+#     group_by(across(-any_of(value_columns))) |>
+#     summarize(across(any_of(value_columns), sum), .groups = "drop")
+# }
+#
+# # Load signature specific mutation rates
+# signature_rates = fread("processed_data/colon/colon_sig_patient_rates.tsv.gz") |>
+#   dplyr::rename(mut_type = name, mle = value) |>
+#   left_join(metadata, relationship = "many-to-many") |>
+#   mutate(category = factor(category, levels = levels(metadata$category))) |>
+#   mask_sigs(select_sigs = c("SBS1", "SBS10a", "SBS10b", "SBS10c", "SBS10d", "SBS13", "SBS2", "SBS5", "SBS88", "SBS89", "SBS18"))
+#
+# # mrate APC all muts:
+# site_freqs_APC = cancer_bDM[gene_name == "APC" & driver == TRUE, .N, by = c("mut_type", "gene_name")]
+# mrate_sigs_APC_driver = get_gene_rate_sig(exp_rates = signature_rates, metadata,
+#                                           site_freqs = site_freqs_APC, ratios = ratios)
+#
+# plot_signature_rates_APC_all_muts = mrate_sigs_APC_driver |>
+#   mutate(mle = mle * ncells) |>
+#   group_by(age, signature, category) |>
+#   summarize(mle = mean(mle)) |>
+#   ggplot(aes(x = age, y = mle, fill = signature)) +
+#   geom_col()  +
+#   facet_grid(. ~ category) +
+#   scale_fill_manual(values = sig_colors) +
+#   theme_cowplot() +
+#   panel_border()  +
+#   scale_y_continuous(expand=expansion(mult=c(0,0.1)), labels = label_comma(),
+#                      sec.axis = sec_axis(name = "% of cells with mutation", ~ . / ncells, labels = scales::label_percent())) +
+#   theme(legend.position = "inside", legend.position.inside = c(0.05, 0.65), legend.key.size = unit(4, "mm"), legend.title = element_blank())+
+#   labs(y = "number of mutated cells", x = "Age (years)", subtitle = "APC mutated cells - all muts")
+# plot_signature_rates_APC_all_muts
+# ggsave("plots/colon/number_of_cells_mutated_by_sig_APC.png", plot_signature_rates_APC_all_muts, width = 10, height = 4.2, bg = "white")
+#
+# # mrate APC driver muts
+# mrate_sigs_APC_driver = get_gene_rate_sig(exp_rates = signature_rates, metadata, site_freqs = site_freqs_APC_drivers, ratios = ratios)
+# plot_signature_rates_APC_drivers = mrate_sigs_APC_driver |>
+#   mutate(mle = mle * ncells) |>
+#   group_by(age, signature, category) |>
+#   summarize(mle = mean(mle)) |>
+#   ggplot(aes(x = age, y = mle, fill = signature)) +
+#   geom_col()  +
+#   facet_grid(. ~ category) +
+#   scale_fill_manual(values = sig_colors) +
+#   theme_cowplot() +
+#   panel_border()  +
+#   scale_y_continuous(expand=expansion(mult = c(0,0.1)), labels = label_comma()) +
+#   theme(legend.position = "inside", legend.position.inside = c(0.05, 0.65), legend.key.size = unit(4, "mm"), legend.title = element_blank()) +
+#   labs(y = "number of mutated cells", x = "Age (years)", subtitle = "Cells with APC driver muatations")
+# ggsave("plots/colon/number_of_cells_mutated_by_sig_driver.png", plot_signature_rates_APC_drivers,  width = 10, height = 4.2, bg = "white")
+#
+# # get hotspot mutation levels for colon
+# APC_1450_hotspot_sig_rates = APC_1450_hotspot |>
+#   left_join(signature_rates, by = "mut_type") |>
+#   left_join(metadata) |>
+#   group_by(age, signature, category) |>
+#   summarize(mle = mean(mle))
+#
+# normal_APC_1450_rates = APC_1450_hotspot_sig_rates |>
+#   filter(category == "normal") |>
+#   mask_sigs()
+#
+# plot_APC_1450_hotspot = ggplot(normal_APC_1450_rates, aes(x = age, y = mle * ncells, fill = signature)) +
+#   geom_col() +
+#   theme_cowplot() +
+#   theme(legend.position = "inside", legend.position.inside = c(0.05, 0.8)) +
+#   scale_y_continuous(expand=expansion(mult=c(0,0.1)),
+#                      sec.axis = sec_axis(name = "% of cells with mutation", ~ . / ncells, labels = scales::label_percent()))  +
+#   scale_fill_manual(values = sig_colors) +
+#   labs(subtitle = "Colonic crypts with R1450* APC hotspot mutations", y = "Number of cells", x = "Age (years)")
+# ggsave("plots/colon/R1450_stop_rates_normal.png", plot_APC_1450_hotspot, width = 5, height = 4, bg = "white")
+#
+# plot_APC_1450_hotspot_all = ggplot(APC_1450_hotspot_sig_rates, aes(x = age, y = mle * ncells, fill = signature)) +
+#   geom_col() +
+#   facet_grid(. ~ category) +
+#   theme_cowplot() +
+#   scale_y_continuous(expand=expansion(mult=c(0,0.1)))  +
+#   scale_fill_manual(values = sig_colors) +
+#   labs(subtitle = "Colonic crypts with R1450* APC hotspot mutations", y = "Number of cells", x = "Age (years)")
+# ggsave("plots/colon/R1450_stop_rates_all.png", plot_APC_1450_hotspot_all,  width = 10, height = 4, bg = "white")
+#
+# ####
+# # mutation rates for individual clones by donor
+# ####
+# apc_total = cancer_bDM[gene_name == "APC",.N, by = c("mut_type", "gene_name", "consequence")]
+# consequence_rates = apc_total |>
+#   left_join(signature_rates |>
+#               filter(category == "normal"), relationship = "many-to-many", by = "mut_type") |>
+#   left_join(ratios)  |>
+#   mutate(mle = mle * N * ncells * ratio) |>
+#   group_by(consequence, sampleID, signature) |>
+#   summarize(mle = sum(mle)) |>
+#   left_join(metadata)
+#
+# # for manuscript: average number of consequence type in normal tissues
+# mean_consequence_rates = consequence_rates |>
+#   left_join(metadata) |>
+#   filter(age > 35) |>
+#   group_by(consequence, age, sampleID) |>
+#   summarize(mle = sum(mle), .groups = "drop_last") |>
+#   summarize(mle = mean(mle), .groups = "drop_last") |>
+#   summarize(mean_mle = mean(mle), min = min(mle), max = max(mle))
+#
+# # manuscript: the outlier with high SBS88 profile
+# consequence_rates |>
+#   left_join(metadata) |>
+#   filter(age > 34) |>
+#   filter(category == "normal" & consequence == "splicing") |>
+#   group_by(donor, age,  sampleID) |>
+#   summarize(mle = sum(mle), .groups = "drop_last") |>
+#   summarize(mle = mean(mle))  |> arrange(desc(mle))
+#
+# consequence_rates |>
+#   left_join(metadata) |>
+#   filter(age > 34) |>
+#   filter(category == "normal" & consequence == "splicing")  |>
+#   ungroup() |>
+#   select(donor, age) |> distinct() |>
+#   filter(age == 36)
+#
+# metadata |> select(donor, age, category) |> distinct() |>
+#   filter(age == 36)
+#
+#
+# # apc mut types drivers
+# apc_total_drivers = cancer_bDM[gene_name == "APC" & driver == TRUE, .N, by = c("mut_type", "gene_name", "driver")]
+# driver_rates = apc_total_drivers |>
+#   left_join(signature_rates, relationship = "many-to-many", by = "mut_type") |>
+#   left_join(ratios[gene_name == "APC",])  |>
+#   mutate(mle = mle * N * ncells * ratio) |>
+#   group_by(driver, sampleID, signature) |>
+#   summarize(mle = sum(mle)) |>
+#   arrange(driver, sampleID, signature)
+#
+# driver_muts = driver_rates |> left_join(metadata) |>
+#   group_by(category, age, signature, driver) |>
+#   summarize(mle = mean(mle))
+#
+# # calculate the mutation rate for all drivers
+# # get the double rates, in a fraction-based approach
+# # first, all signatures
+# APC_sig_rates = get_gene_rate_sig(exp_rates = signature_rates, metadata = metadata,
+#                                   site_freqs = site_freqs_APC_drivers, ratios = ratios)
+# SBS88_percentage = APC_sig_rates |>
+#   group_by(donor, signature) |>
+#   summarize(mle = mean(mle)) |>
+#   mutate(mle, mle /sum(mle))  |>
+#   filter(signature == "SBS88")
+#
+# expected_rates = signature_rates |>
+#   group_by(category, sampleID, mut_type) |>
+#   summarise(mle = sum(mle)) |>
+#   arrange(category, mut_type, sampleID)
+#
+# drivers2_all = get_double_gene_rate_fraction(exp_rates = expected_rates, metadata = metadata,
+#                                              site_freqs = site_freqs_APC_drivers, ratios = ratios, ncells = ncells)
+#
+# expected_rates_nocb = signature_rates |>
+#   filter(signature != "SBS88") |>
+#   group_by(category, sampleID, mut_type) |>
+#   summarise(mle = sum(mle)) |>
+#   arrange(category, mut_type, sampleID)
+# drivers2_nocb = get_double_gene_rate_fraction(exp_rates = expected_rates_nocb, metadata = metadata,
+#                                               site_freqs = site_freqs_APC_drivers, ratios = ratios, ncells = ncells)
+#
+# expected_cb_muts = list(all_sigs = drivers2_all, no_colibactin = drivers2_nocb) |>
+#   rbindlist(idcol = "type") |>
+#   filter(category == "normal") |>
+#   mutate(type = fct_relevel(type,  "no_colibactin", "all_sigs")) |>
+#   arrange(type)
+#
+# # get the average rates for the individual cells
+# gene_muts = cancer_bDM[gene_name == "APC" , c("chr", "pos", "gene_name", "mut_type", "aachange", "position")]
+# expected_rate_pos_sc = expected_rates |>
+#   inner_join(gene_muts, by = "mut_type", relationship = "many-to-many") |>
+#   left_join(metadata) |>
+#   left_join(ratios) |>
+#   mutate(mle = mle* ratio)
+#
+# # Make the full plots using patchwork
+# empty_plot = ggplot() + cowplot::theme_nothing()
+# plot_list = list(empty_plot = empty_plot,
+#                  plot_APC_1450_hotspot = plot_APC_1450_hotspot,
+#                  plot_consequence_APC = plot_consequence_APC,
+#                  plot_muts_driver_normal = plot_muts_driver_normal,
+#                  plot_APC_drivers_normal = plot_APC_drivers_normal,
+#                  plot_apc_double_drivers_normal = plot_apc_double_drivers_normal,
+#                  rel_difference_plot_colibactin = rel_difference_plot_colibactin,
+#                  plot_signature_rates_APC_drivers = plot_signature_rates_APC_drivers,
+#                  plot_double_all = plot_double_all,
+#                  plot_TP53_drivers = plot_TP53_drivers)
+#
+# mg = 10
+# pl = lapply(plot_list, "+",  theme(plot.margin = margin(mg, mg, mg, mg, unit = "mm")))
+#
+# row1 = wrap_plots(pl$empty_plot, pl$plot_APC_1450_hotspot, pl$plot_consequence_APC, nrow = 1, widths = c(1,1,1.5))
+# row2 = wrap_plots(pl$plot_muts_driver_normal, pl$plot_APC_drivers_normal, pl$plot_apc_double_drivers_normal, nrow = 1)
+# row3 = wrap_plots(pl$rel_difference_plot_colibactin, pl$plot_signature_rates_APC_drivers, nrow = 1, widths =  c(1, 2))
+# row4 = wrap_plots(pl$plot_double_all, pl$plot_TP53_drivers,  nrow = 1, widths = c(2, 1))
+#
+# figure_2 = wrap_plots(row1, row2, row3, row4, ncol = 1) + plot_annotation(tag_levels = "A")
+# ggsave("plots/manuscript/main_figures/figure_2.svg", figure_2, width = 22, height = 19, bg = "white", dpi = 600)
+# ggsave("plots/manuscript/main_figures/figure_2.png", figure_2, width = 19, height = 20, bg = "white", dpi = 600)
+#
+# figure_2
+#
+# # APC rates for a single cell
+# apc_double_driver_sc = apc_double_driver |>
+#   mutate(across(c(mle, cilow, cihigh), ~ ./ ncells)) |>
+#   arrange(category, donor, age)
+#
+# # make a dataframe with the relative mutation rates for all the different changes:
+# vogelgram_mut_risks_sc = tibble(
+#   category = apc_double_driver_sc$category,
+#   donor = apc_double_driver_sc$donor,
+#   age = apc_double_driver_sc$age,
+#   `APC 2x SNV` = apc_double_driver_sc$mle,
+#   KRAS_driver = expected_rate_KRAS_driver_sc$mle) |>
+#   mutate(`APC 2x +KRAS` = `APC 2x SNV` * KRAS_driver)
+#
+# vogelgram_mut_risks = vogelgram_mut_risks_sc |>
+#   mutate(across(-c(category, donor, age), ~ . * ncells))
+#
+# vogelgram_mut_risks_long = vogelgram_mut_risks |>
+#   filter(category == "normal") |>
+#   pivot_longer(-c(category, donor, age), names_to = "mutation", values_to = "expected_mutated_cells")
+#
+# saveRDS(vogelgram_mut_risks_long, "processed_data/colon/vogelgram_plot.rds")
