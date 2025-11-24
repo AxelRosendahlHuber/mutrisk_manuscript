@@ -201,27 +201,23 @@ ggsave("plots/colon/APC_driver_non-driver.png", APC_colon_normal, width = 12, he
 
 # Figure 4A
 F4A1 = make_gene_barplot(boostdm, ratios, gene_of_interest = "APC", tissue_select = "colon", cell_probabilities = FALSE) +
-  scale_y_continuous(breaks = extended_breaks(4)) +
+  scale_y_continuous(breaks = extended_breaks(4), expand = expansion(mult = c(0, 0.1))) +
+  scale_x_continuous(expand = c(0,0)) +
   theme(legend.position = "none",
         legend.text = element_text(size = rel(0.8)),
         legend.title = element_text(size = rel(0.8)),
         legend.key.size = unit(0.8, "lines"), legend.background = element_blank())
 
 F4A2 = make_gene_barplot(boostdm, ratios, gene_of_interest = "KRAS", tissue_select = "colon", cell_probabilities = FALSE) +
-  scale_y_continuous(breaks = extended_breaks(4)) +
+  scale_y_continuous(breaks = extended_breaks(4), expand = expansion(mult = c(0, 0.1))) +
   theme(legend.position = "inside", legend.position.inside = c(0.9, 1),
         legend.text = element_text(size = rel(0.8)),
         legend.title = element_text(size = rel(0.8)),
-        legend.key.size = unit(0.8, "lines"), legend.background = element_blank())
-F4A = F4A1 / F4A2 & labs(subtitle = NULL, y = NULL) &
-  scale_x_continuous(expand = c(0,0)) &
-  scale_y_continuous(expand = expansion(mult = c(0, 0.1))) #& plot_layout(guides = "collect")
-F4A = wrap_elements(F4A) +
-  labs(tag = "Number of cells with mutation") +
-  theme(plot.tag = element_text(size = rel(1.3), angle = 90),
-        plot.tag.position = "left")
+        legend.key.size = unit(0.8, "lines"), legend.background = element_blank()) +
+  scale_x_continuous(expand = c(0,0))
 
-saveRDS(F4A, "manuscript/figure_panels/figure_4/figures_A.rds")
+saveRDS(list(F4A1, F4A2), "manuscript/figure_panels/figure_4/figures_AB.rds")
+
 
 # make function, inputting the boostdm driver mutations, and the expected rates.
 # this will become the plot

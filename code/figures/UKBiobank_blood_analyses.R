@@ -232,3 +232,4 @@ ggplot(df_rate, aes(x = names, y = yearly_mutation_rate, fill = names)) +
             vjust = -0.2, position = position_dodge(0.9)) +
   theme(legend.position = "none") +
   labs(y = "yearly mutation rate", x = NULL)
+

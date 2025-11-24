@@ -152,26 +152,27 @@ plot_driver_muts = function(driver_rates, y_axis = "INSERT TITLE") {
     scale_color_manual(values = colors) +
     theme_cowplot() +
     labs(y = y_axis, x = "Age (years)") +
-    theme(legend.position = "none")
+    theme(legend.position = "none", axis.title = element_text(size = 12))
 }
 
-F4B = plot_driver_muts(apc_single_snv, y_axis = "Number of cells with\nan APC driver mutation")
-F4C = plot_driver_muts(KRAS_single_snv, y_axis = "Number of cells with\nKRAS driver mutations")
-F4D = plot_driver_muts(double_apc, y_axis = "Number of cells with\ndouble APC driver mutations")
-F4E = plot_driver_muts(apc_kras, y_axis = "Number of cells with\nAPC + KRAS driver mutations")
-F4F = plot_driver_muts(double_apc_kras, y_axis = "Number of cells with\n doubleAPC + KRAS driver mutations") +
+F4C = plot_driver_muts(apc_single_snv, y_axis = "Number of cells with\nan APC driver mutation")
+F4D = plot_driver_muts(KRAS_single_snv, y_axis = "Number of cells with\nKRAS driver mutations")
+F4E = plot_driver_muts(double_apc, y_axis = "Number of cells with\ndouble APC driver mutations")
+F4F = plot_driver_muts(apc_kras, y_axis = "Number of cells with\nAPC + KRAS driver mutations")
+F4G = plot_driver_muts(double_apc_kras, y_axis = "Number of cells with\n doubleAPC + KRAS driver mutations") +
   scale_y_continuous(labels = scales::label_number_auto())
 
 # make the figures for
-figs = list(F4B = F4B, F4C = F4C, F4D = F4D, F4E = F4E, F4F = F4F)
+figs = list(F4C = F4C, F4D = F4D, F4E = F4E, F4F = F4F, F4G = F4G)
 
 for (fig_i in names(figs)) {
   ggsave(paste0("plots/colon/", fig_i, "_colon.png"), figs[[fig_i]], width = 5, height = 4)
 }
 
-saveRDS(figs, "manuscript/figure_panels/figure_4/figures_B-F.rds")
-annotated_figs = lapply(names(figs), \(x) prep_plot(figs[[x]], substr(x, 3,3)))
-c = wrap_plots(annotated_figs, nrow = 1 )
+saveRDS(figs, "manuscript/figure_panels/figure_4/figures_C-G.rds")
+
+# annotated_figs = lapply(names(figs), \(x) prep_plot(figs[[x]], substr(x, 3,3)))
+# c = wrap_plots(annotated_figs, nrow = 1 )
 
 # TP53 mutations - check if this needs to be here or in Figure 3 script (the TP53 script)
 TP53_single_driver = expected_rates |>
@@ -233,22 +234,25 @@ ggplot(mutated_fraction_CRC, aes(x = age, y = CRC_mut_fraction)) +
   labs(x = "Age (years)", y = "Lifetime risk for CRC with\nspecifc mutation")
 
 # make a new figure splitting all the individual panels into separate ones (so that we can identify the labels)
-
+list_CRC_figures = list()
 for (i in unique(mutated_fraction_CRC$mutation_combination)) {
-  mutated_fraction_CRC |>
+  list_CRC_figures[[i]] = mutated_fraction_CRC |>
     filter(mutation_combination %in% i) |>
     ggplot(aes(x = age, y = CRC_mut_fraction)) +
     geom_point() +
     geom_line() +
-    ggrepel::geom_text_repel(data = label_65, aes(label = label), nudge_x = -15) +
-    ggh4x::facet_wrap2(mutation_combination ~ . , nrow = 1, axes = "y" ) +
+    ggrepel::geom_text_repel(data = label_65 |> filter(mutation_combination %in% i), aes(label = label), nudge_x = -15) +
     scale_y_continuous(breaks = scales::breaks_pretty(2), labels = label_percent()) +
     scale_x_continuous(limits = c(0, 80)) +
     theme_cowplot() +
-    labs(x = "Age (years)", y = "Lifetime risk for CRC with\nspecifc mutation")
+    theme(axis.title = element_text(size = 12)) +
+    labs(x = "Age (years)", y = "Lifetime risk for CRC with\nspecifc mutation", title = i)
 
 
 }
+
+saveRDS(list_CRC_figures, "manuscript/figure_panels/figure_4/figure_4_CRC.rds")
+
 
 
 
@@ -300,12 +304,15 @@ ad_incidence_mean = ad_incidence |>
   group_by(age) |>
   summarize(fraction_adenoma_apc = mean(fraction_adenoma_apc))
 
-ggplot(ad_incidence_mean, aes(x = age, y = fraction_adenoma_apc)) +
+AD_plot = ggplot(ad_incidence_mean, aes(x = age, y = fraction_adenoma_apc)) +
   geom_point() +
   geom_line() +
   theme_cowplot() +
   scale_y_continuous(breaks = scales::breaks_extended(5), labels = label_percent(), limits = c(0, .75)) +
   scale_x_continuous(limits = c(20, 85)) +
   labs(y = "Lifetime risk for Adenoma\nwith APC mutation",
-       x = "Age (years)")
+       x = "Age (years)")  +
+  theme(axis.title = element_text(size = 12))
+AD_plot
+saveRDS(AD_plot, "manuscript/figure_panels/figure_4/figures_adenoma.rds")
 

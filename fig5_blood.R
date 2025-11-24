@@ -1,4 +1,4 @@
-# Figure_4_blood new
+# Figure 5 scripts
 source("code/functions/analysis_variables.R")
 library(patchwork)
 library(cowplot)
@@ -85,8 +85,8 @@ TP53 = plot_figures(TP53_drivers, "Number of cells with\nTP53 driver mutation")
 
 # make the general figure:
 plots = c(DNMT3A, TET2, TP53)
-F5B = wrap_plots(plots[c(1,3,5)], byrow = FALSE) |> prep_plot(label = "B")
-F5C = wrap_plots(plots[c(2,4,6)], byrow = FALSE) |> prep_plot(label = "C")
+F5B = wrap_plots(plots[c(2,4,6)], byrow = FALSE) |> prep_plot(label = "B")
+F5C = wrap_plots(plots[c(1,3,5)], byrow = FALSE) |> prep_plot(label = "C")
 
 
 # get all the driver mutations for the watson figure:
@@ -109,8 +109,6 @@ mutation_list = list(
         prob_mut_10 = get_prob_mutated_N(risk = mle/ncells ,ncells = ncells, N = 13))
 
 # also needed would be the list of all the variants in the Watson analysis reported to be mutated
-F5A = readRDS("processed_data/plots/F5A.rds")
-F5A = prep_plot(F5A, label = "A", t = 8, r = 8, l = 8, b = 8)
 
 CH_genes = c("DNMT3A", "TET2", "TP53")
 
@@ -146,6 +144,8 @@ for (i in 1:3) {
 }
 F5D = wrap_plots(UKB_plot_list) |> prep_plot(label = "D")
 
-# save final completed plot
-F5A / F5B / F5C / F5D
-ggsave("manuscript/Figure_5/Figure_5.png", width = 12, height = 16)
+# save figures:
+saveRDS(F5A, "manuscript/figure_panels/figure_5/figure_5A.rds")
+saveRDS(F5B, "manuscript/figure_panels/figure_5/figure_5B.rds")
+saveRDS(F5C, "manuscript/figure_panels/figure_5/figure_5C.rds")
+saveRDS(F5D, "manuscript/figure_panels/figure_5/figure_5D.rds")

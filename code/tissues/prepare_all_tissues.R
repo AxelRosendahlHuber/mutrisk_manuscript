@@ -11,4 +11,3 @@ for (script in scripts) {
   toc()
   gc()
 }
-

@@ -299,6 +299,7 @@ FS1B = prep_plot(exome_counts_plot, "B")
 
 Figure_S1 = FS1A / FS1B
 ggsave("manuscript/Supplementary_Figures/Figure_S1/Figure_S1.png", Figure_S1,  width = 15, height = 10, dpi = 600)
+ggsave("manuscript/Supplementary_Figures/Figure_S1/Figure_S1.pdf", Figure_S1,  width = 15, height = 10)
 
 # TODO - check the plot below - see if it is possible to make it with the lmm-based approaches for correctness.
 # make a simple plot for the biorender figure:
@@ -500,3 +501,4 @@ ggsave("manuscript/Schematic_poster_presentations/100Kb_genomic_rate.png", genom
 #   theme(plot.margin =  margin(5,5,5,5, unit = "mm"),  plot.tag = element_text(face = 'bold'))
 # ggsave("plots/manuscript/main_figures/figure_1.png", Figure_1, width = 13, height = 13, bg = "white")
 # ggsave("plots/manuscript/main_figures/figure_1.svg", Figure_1, width = 13, height = 13, bg = "white")
+

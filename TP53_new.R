@@ -4,6 +4,7 @@ library(tidyverse)
 library(cowplot)
 library(MutationalPatterns)
 source("code/functions/analysis_variables.R")
+
 getwd()
 
 # Select all gene_of_interest mutations in gene_of_interest
@@ -380,5 +381,4 @@ F5A = ggplot(df_point, aes(x = position, y = mrate)) +
   scale_y_continuous(expand=expansion(mult=c(0,0)), breaks = scales::breaks_extended(n = 3), labels = abs)
 F5A
 
-saveRDS(F5A, "processed_data/plots/F5A.rds")
-
+saveRDS(F5A, "manuscript/figure_panels/figure_5/figure_5A.rds")

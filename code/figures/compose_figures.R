@@ -48,13 +48,42 @@ ggsave("manuscript/Figure_3/figure_3.pdf", figure_3, width = 15, height = 10)
 
 
 ##### Figure 4
+mg = 5
 
+# perform these operations later in the compose-figures part:
+list_figure_4AB = readRDS("manuscript/figure_panels/figure_4/figures_AB.rds")
+figure_4A = list_figure_4AB[[1]] |> prep_plot(label = 'A', all_margin = mg)
+figure_4B = list_figure_4AB[[2]]  |> prep_plot(label = 'B', all_margin = mg)
+figure_4_top = figure_4A + figure_4B
 
+figs = readRDS("manuscript/figure_panels/figure_4/figures_C-G.rds")
+annotated_figs = lapply(names(figs), \(x) prep_plot(figs[[x]], substr(x, 3,3), all_margin = mg))
+figure_4_middle = wrap_plots(annotated_figs, nrow = 1)
 
+figure_4H = readRDS("manuscript/figure_panels/figure_4/figures_adenoma.rds") |>
+  prep_plot(label = 'H', all_margin = mg)
+
+figures_4_CRC = readRDS("manuscript/figure_panels/figure_4/figure_4_CRC.rds")
+
+annotated_figs = mapply(prep_plot, figures_4_CRC, c("I", "J", "K", "L", "M"), all_margin = mg)
+figure_4_bottom = wrap_plots(c(figure_4H, annotated_figs), nrow = 1)
+
+figure_4 = figure_4_top / figure_4_middle / figure_4_bottom# + plot_layout(heights = c(1.5,1, 1))
+
+ggsave("manuscript/Figure_4/figure_4.png", figure_4, width = 19, height = 11)
+ggsave("manuscript/Figure_4/figure_4.pdf", figure_4, width = 19, height = 11)
 
 ##### Figure 5
+figure_5A = readRDS("manuscript/figure_panels/figure_5/figure_5A.rds") |> prep_plot("A", all_margin = 3)
+figure_5B = readRDS("manuscript/figure_panels/figure_5/figure_5B.rds")
+figure_5C = readRDS("manuscript/figure_panels/figure_5/figure_5C.rds")
+figure_5D = readRDS("manuscript/figure_panels/figure_5/figure_5D.rds")
 
+# save final completed plot
+figure_5A / figure_5B / figure_5C / figure_5D
+ggsave("manuscript/Figure_5/Figure_5.png", width = 13, height = 15)
 
+#TODO check if it is neccesary to check extended figures;
 
 
 

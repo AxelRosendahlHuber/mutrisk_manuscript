@@ -1,17 +1,12 @@
-# filter driver mutations:
-# script to filter the number of driver mutations for a single # Colon Figure 2 script
-# aim of the script: Quickly get positions of the driver gene mutation.
-# check how we annotate this in the main script. Goals: It should be lightweight and simple, but also as complete as possible (position-bases-specificity).
-# ideally dataframe with position, change, driver status
-# example of the boostdm driver dataframe - column names:
-#  - position   -     pos   -  alt -  aachange -  boostDM_class
+# Script to classify individual mutations in cancer genes as drivers
+# Definition of cancer driver mutation: Being classified in BoostDM predictions and in either COSMIC/GENIE mutation databases.
 library(data.table)
 library(tidyverse)
 library(GenomicRanges)
 library(rtracklayer)
 library(patchwork)
 library(cowplot)
-library(UpSetR)
+library(eulerr)
 
 output_folder = "processed_data/boostdm/boostdm_genie_cosmic/"
 
@@ -59,7 +54,7 @@ COSMIC_cancer_type = left_join(COSMIC, COSMIC_phenotype_link) |>
   mutate(cosmic_present = TRUE) |>
   distinct()
 
-boostdm_hg19 = fread("processed_data/boostdm/boostdm_hg19.txt.gz")
+boostdm_hg19 = fread("processed_data/boostdm/boostdm_hg19.txt.gz") # Generated in the BoostDM_RefCDS.R script
 
 # Save and filter mutation-site state
 combine_boostdm_cancer = function(cosmic_select, genie_select, boostdm_muts) {
@@ -95,21 +90,6 @@ intersect_boostDM_cancer = function(boostdm_cohort, cosmic_cohort, genie_cohort)
   }
   rbindlist(intersect_gene_list)
 }
-
-# upset_boostdm_cancer_cohorts = function(boostdm_cancer) {
-#   mat = boostdm_cancer |> select("cosmic_present", "genie_present", "boostDM_class")*1 # multiply by 1 to convert to numeric
-#   plot = upset(mat, queries = list(list(query = intersects, params = list("cosmic_present", "boostDM_class"), color = "darkgreen", active = T),
-#                             list(query = intersects, params = list("genie_present", "boostDM_class"), color = "darkgreen", active = T),
-#                             list(query = intersects, params = list("cosmic_present", "genie_present", "boostDM_class"), color = "darkgreen", active = T)))
-#   ggplotify::as.ggplot(plot)
-# }
-
-# upset_boostdm_cancer_present = function(boostdm_cancer) {
-#   mat = boostdm_cancer |> select("cancer_present", "boostDM_class")*1 # multiply by 1 to convert to numeric
-#   plot = upset(mat, queries = list(list(query = intersects, params = list("boostDM_class", "cancer_present"), color = "darkgreen", active = T)))
-#   ggplotify::as.ggplot(plot)
-# }
-
 
 euler_boostdm_cancer = function(boostdm_cancer, title) {
  mat = boostdm_cancer |> select("cosmic_present", "genie_present", "boostDM_class")*1 # multiply by 1 to convert to numeric
@@ -169,8 +149,7 @@ bDM_ns_intersect = intersect_boostDM_cancer(boostdm_ns, cosmic_cohort, genie_coh
 fwrite(bDM_ns_intersect, paste0("processed_data/boostdm/boostdm_genie_cosmic/", tissue, "_boostDM_cancer.txt.gz"))
 
 # Using Clonal hematopoiesiss - Blood CH data
-#  boostdm_ch data: Needs to be lifted over to hg19
-boostdm_ch_hg19 = fread("processed_data/boostdm_ch/boostdm_ch_hg19.txt.gz")
+boostdm_ch_hg19 = fread("processed_data/boostdm_ch/boostdm_ch_hg19.txt.gz") # BoostDM_ch_RefCDS.R script
 
 #### TP53 in Clonal hematopoiesis
 tissue = "CH"
