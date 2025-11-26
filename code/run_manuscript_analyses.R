@@ -24,3 +24,4 @@ for (script in figure_scripts) {
   toc()
   gc()
 }
+

@@ -51,102 +51,102 @@ setDT(expected_rate_APC_1450)[category == "normal" & age > 35, mle] |> max()
 # ggsave("plots/colon/Figure_2A.png", width = 5, height = 4.5, bg = "white")
 
 
-# expected rate KRAS driver
-KRAS_G12_hotspot = cancer_bDM[gene_name == "KRAS" & driver == TRUE & position == 12 ,
-                              c("gene_name", "mut_type", "aachange", "position", "driver")]
-expected_rate_KRAS_G12 = expected_rates |>
-  inner_join(KRAS_G12_hotspot, by = "mut_type") |>
-  left_join(metadata) |>
-  left_join(ratios) |>
-  mutate(mle = mle * ratio * ncells) |>
-  group_by(donor, category) |>
-  summarise(mle = mean(mle)) |>
-  setDT()
-
-apc_counts_boostdm = cancer_bDM[gene_name == "APC", .N, by = c("gene_name", "mut_type",  "driver")]
-expected_apc_muts = expected_rates |>
-  left_join(apc_counts_boostdm, relationship = "many-to-many") |>
-  inner_join(ratios, relationship = "many-to-many") |>
-  mutate(across(c(mle, cilow, cihigh), ~ . * N *  ncells * ratio)) |>
-  group_by(driver, category, sampleID) |>
-  summarize(across(c(mle, cilow, cihigh), sum))  |>
-  group_by(driver, category) |>
-  summarize(across(c(mle, cilow, cihigh), mean))
-
-# manuscript: expected number of APC mutations in cohort
-expected_apc_muts |> filter(driver == TRUE & category == "normal")
-metadata |> select(age, donor, category) |> group_by(category) |> summarize(age = mean(age))
-
-# Expected number of cells with double mutations:
-apc_double_driver = expected_rates |>
-  left_join(ratios |> filter(gene_name == "APC")) |>
-  left_join(metadata) |>
-  inner_join(apc_counts_boostdm |> filter(driver), by = "mut_type", relationship = "many-to-many") |>
-  mutate(across(c(mle, cilow, cihigh), ~ . * N * ratio)) |>
-  group_by(category, donor, age,  mut_type) |>
-  summarize(across(c(mle, cilow, cihigh), mean), .groups = "drop_last") |>
-  summarize(across(c(mle, cilow, cihigh), sum)) |>
-  mutate(across(c(mle, cilow, cihigh), ~ ((.^2) / 2) * ncells ))
-
-apc_double_driver_mean = apc_double_driver |>
-  group_by(category) |>
-  summarize(max = max(mle)*1.1,
-            mle = mean(mle))
-
-plot_double_all = apc_double_driver |>
-  ggplot(aes(x = age, y = mle, color = category, fill = category)) +
-  geom_errorbar(aes(ymin = cilow, ymax = cihigh), linewidth = 1, width = 0) +
-  geom_point(shape = 21, color = "white", size = 3, stroke = 0.5) +
-  theme_cowplot() +
-  scale_color_manual(values = colon_colors) +
-  scale_fill_manual(values = colon_colors) +
-  scale_y_continuous(expand=expansion(mult=c(0,0.1))) +
-  theme(legend.position = "inside", legend.position.inside = c(0.03, 0.7), legend.key.size = unit(5, "mm"),
-        legend.title = element_blank()) +
-  panel_border() +
-  labs(x = "Age (years)", y = "number of cells with\ndouble mutation") +
-  ggforce::facet_zoom(ylim = c(0, 15), zoom.size = 1)
-plot_double_all
-ggsave("plots/colon/number_of_double_mutated_cells_zoom.png", plot_double_all, width = 8, height = 4.5, bg = "white")
-
-#### profiles:
-# load genie data:
-genie_colorectal = fread("processed_data/GENIE_17/GENIE_17_processed.txt.gz") |>
-  filter(ONCOTREE_CODE %in%  c("COAD", "READ", "COADREAD"))
-label_df_genie = data.frame(label = "GENIE APC:\ncolorectal cancer data")
-
-apc_colon_count = genie_colorectal[gene_name == "APC", .N, by = "position"]
-
-# profile of the driver rates for APC:
-apc_muts = expected_rates |>
-  group_by(category, mut_type) |>
-  summarize(across(c(mle, cilow, cihigh), mean)) |>
-  left_join(ratios[gene_name == "APC"]) |>
-  mutate(across(c(mle, cilow, cihigh), ~ . * ncells * ratio)) |>
-  left_join(triplet_match_substmodel) |>
-  left_join(cancer_bDM[gene_name == "APC", ], by = c("mut_type", "gene_name"), relationship = "many-to-many") |>
-  mutate(driver_status = ifelse(driver, "driver", "non-driver"))  |> setDT()
-
-apc_count = apc_muts[, .(mle = sum(mle)) , by = c("position", "category", "driver_status") ]
-normal_apc = apc_muts[category == "normal",]
-normal_apc_count = apc_count[category == "normal",]
-
-label_df = data.frame(label = "expected number of crypt stem cells mutated",
-                      driver_status = "driver")
-
-expected_apc = ggplot(normal_apc, aes(x = position, y = mle)) +
-  geom_col(aes(fill = type)) +
-  geom_point(data = normal_apc_count) +
-  ggpp::geom_text_npc(data = label_df,  aes(label = label),  npcx = 0.05, npcy = 0.96) +
-  scale_fill_manual(values = COLORS6) +
-  labs(y = "numer of mutated cells") +
-  facet_grid(driver_status ~ .) +
-  theme_cowplot() + panel_border() +
-  scale_y_continuous(expand=expansion(mult=c(0,0.1)), labels = label_comma())
-
-APC_observed_expected = genie_apc /  expected_apc + plot_layout(guides = "collect", heights = c(1, 1.5))
-ggsave("plots/colon/APC_observed_expected.png", APC_observed_expected,  width = 15, height = 6)
-ggsave("plots/colon/APC_expected.png", expected_apc ,  width = 15, height = 5.5, bg = "white")
+# # expected rate KRAS driver
+# KRAS_G12_hotspot = cancer_bDM[gene_name == "KRAS" & driver == TRUE & position == 12 ,
+#                               c("gene_name", "mut_type", "aachange", "position", "driver")]
+# expected_rate_KRAS_G12 = expected_rates |>
+#   inner_join(KRAS_G12_hotspot, by = "mut_type") |>
+#   left_join(metadata) |>
+#   left_join(ratios) |>
+#   mutate(mle = mle * ratio * ncells) |>
+#   group_by(donor, category) |>
+#   summarise(mle = mean(mle)) |>
+#   setDT()
+#
+# apc_counts_boostdm = cancer_bDM[gene_name == "APC", .N, by = c("gene_name", "mut_type",  "driver")]
+# expected_apc_muts = expected_rates |>
+#   left_join(apc_counts_boostdm, relationship = "many-to-many") |>
+#   inner_join(ratios, relationship = "many-to-many") |>
+#   mutate(across(c(mle, cilow, cihigh), ~ . * N *  ncells * ratio)) |>
+#   group_by(driver, category, sampleID) |>
+#   summarize(across(c(mle, cilow, cihigh), sum))  |>
+#   group_by(driver, category) |>
+#   summarize(across(c(mle, cilow, cihigh), mean))
+#
+# # manuscript: expected number of APC mutations in cohort
+# expected_apc_muts |> filter(driver == TRUE & category == "normal")
+# metadata |> select(age, donor, category) |> group_by(category) |> summarize(age = mean(age))
+#
+# # Expected number of cells with double mutations:
+# apc_double_driver = expected_rates |>
+#   left_join(ratios |> filter(gene_name == "APC")) |>
+#   left_join(metadata) |>
+#   inner_join(apc_counts_boostdm |> filter(driver), by = "mut_type", relationship = "many-to-many") |>
+#   mutate(across(c(mle, cilow, cihigh), ~ . * N * ratio)) |>
+#   group_by(category, donor, age,  mut_type) |>
+#   summarize(across(c(mle, cilow, cihigh), mean), .groups = "drop_last") |>
+#   summarize(across(c(mle, cilow, cihigh), sum)) |>
+#   mutate(across(c(mle, cilow, cihigh), ~ ((.^2) / 2) * ncells ))
+#
+# apc_double_driver_mean = apc_double_driver |>
+#   group_by(category) |>
+#   summarize(max = max(mle)*1.1,
+#             mle = mean(mle))
+#
+# plot_double_all = apc_double_driver |>
+#   ggplot(aes(x = age, y = mle, color = category, fill = category)) +
+#   geom_errorbar(aes(ymin = cilow, ymax = cihigh), linewidth = 1, width = 0) +
+#   geom_point(shape = 21, color = "white", size = 3, stroke = 0.5) +
+#   theme_cowplot() +
+#   scale_color_manual(values = colon_colors) +
+#   scale_fill_manual(values = colon_colors) +
+#   scale_y_continuous(expand=expansion(mult=c(0,0.1))) +
+#   theme(legend.position = "inside", legend.position.inside = c(0.03, 0.7), legend.key.size = unit(5, "mm"),
+#         legend.title = element_blank()) +
+#   panel_border() +
+#   labs(x = "Age (years)", y = "number of cells with\ndouble mutation") +
+#   ggforce::facet_zoom(ylim = c(0, 15), zoom.size = 1)
+# plot_double_all
+# ggsave("plots/colon/number_of_double_mutated_cells_zoom.png", plot_double_all, width = 8, height = 4.5, bg = "white")
+#
+# #### profiles:
+# # load genie data:
+# genie_colorectal = fread("processed_data/GENIE_17/GENIE_17_processed.txt.gz") |>
+#   filter(ONCOTREE_CODE %in%  c("COAD", "READ", "COADREAD"))
+# label_df_genie = data.frame(label = "GENIE APC:\ncolorectal cancer data")
+#
+# apc_colon_count = genie_colorectal[gene_name == "APC", .N, by = "position"]
+#
+# # profile of the driver rates for APC:
+# apc_muts = expected_rates |>
+#   group_by(category, mut_type) |>
+#   summarize(across(c(mle, cilow, cihigh), mean)) |>
+#   left_join(ratios[gene_name == "APC"]) |>
+#   mutate(across(c(mle, cilow, cihigh), ~ . * ncells * ratio)) |>
+#   left_join(triplet_match_substmodel) |>
+#   left_join(cancer_bDM[gene_name == "APC", ], by = c("mut_type", "gene_name"), relationship = "many-to-many") |>
+#   mutate(driver_status = ifelse(driver, "driver", "non-driver"))  |> setDT()
+#
+# apc_count = apc_muts[, .(mle = sum(mle)) , by = c("position", "category", "driver_status") ]
+# normal_apc = apc_muts[category == "normal",]
+# normal_apc_count = apc_count[category == "normal",]
+#
+# label_df = data.frame(label = "expected number of crypt stem cells mutated",
+#                       driver_status = "driver")
+#
+# expected_apc = ggplot(normal_apc, aes(x = position, y = mle)) +
+#   geom_col(aes(fill = type)) +
+#   geom_point(data = normal_apc_count) +
+#   ggpp::geom_text_npc(data = label_df,  aes(label = label),  npcx = 0.05, npcy = 0.96) +
+#   scale_fill_manual(values = COLORS6) +
+#   labs(y = "numer of mutated cells") +
+#   facet_grid(driver_status ~ .) +
+#   theme_cowplot() + panel_border() +
+#   scale_y_continuous(expand=expansion(mult=c(0,0.1)), labels = label_comma())
+#
+# APC_observed_expected = genie_apc /  expected_apc + plot_layout(guides = "collect", heights = c(1, 1.5))
+# ggsave("plots/colon/APC_observed_expected.png", APC_observed_expected,  width = 15, height = 6)
+# ggsave("plots/colon/APC_expected.png", expected_apc ,  width = 15, height = 5.5, bg = "white")
 
 
 #### TP53 mutations for colon:
@@ -211,7 +211,7 @@ probs = expected_rates |>
   filter(!is.na(donor)) |>
   as.data.table()
 
-Rcpp::sourceCpp("code/functions/inclusion_exclusion2.cpp")
+Rcpp::sourceCpp("code/0_functions/inclusion_exclusion2.cpp")
 
 fraction_mut_test = tibble(donor = unique(probs$donor), `inclusion exclusion` = NA, sum = NA)
 for (select_donor in unique(probs$donor)) {

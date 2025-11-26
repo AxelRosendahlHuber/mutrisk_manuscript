@@ -31,12 +31,94 @@ genie_blood = fread("processed_data/GENIE_17/GENIE_17_processed.txt.gz") |>
 CH_bDM = fread("processed_data/boostdm/boostdm_genie_cosmic/CH_boostDM_cancer.txt.gz")
 
 ##### PLOTTING #####
-# check which mutation is the R882H frequently mutated hotspot
-####
-# changes to make the script more accommodating for multiple different tissues:
-select_gene = "KRAS"
+# mutation rates
+mutation_rates = expected_rates |>
+  mutate(tissue_category = paste0(tissue, "_", category)) |>
+  left_join(metadata)
 
-# calculate expected rates
+# Mean mutation rate for each trinucleotide
+# Check if the blood rates actually make sense - this seems too low - this must be because of the cord blood donors
+mean_rates = mutation_rates |>
+  group_by(tissue_category, mut_type) |>
+  summarize(mle = mean(mle),
+            mean_age = mean(age)) |>
+  mutate(tissue_category_age = paste0(tissue, "\n(", format(mean_age, digits = 3, nsmall = 1 ), ") years"))
+
+# make specific plots for specific positions:
+# Blood make specific mirror genes for specific sites:
+boostdm_ch = fread("processed_data/boostdm/boostdm_genie_cosmic/CH_boostDM_cancer.txt.gz")
+
+# UKBiobank DNMT3A mutations:
+UKB_DNMT3A_muts = fread("raw_data/UKBiobank/UkBiobank_DNMT3A_mut_age.csv")
+UKB_DNMT3A_counts = UKB_DNMT3A_muts[, .N, by = c("aa_change", "REF", "ALT")]  |>
+  mutate(position = parse_number(aa_change),
+         type = paste0(REF, ">", ALT),
+         type = case_match(type, .default = type,
+                           "A>T" ~ "T>A", "A>G" ~ "T>C", "A>C" ~ "T>G",
+                           "G>T" ~ "C>A", "G>A" ~ "C>T", "G>C" ~ "C>G")) |>
+  mutate(mrate = N, tissue_category = "UKBiobank CH") |>
+  select(position, type, tissue_category, mrate)
+
+# plot not used in the main script (can be removed)
+# # first attempt ukbiobank plots:
+# DNMT3A_plot = UKB_DNMT3A_counts |>
+#   ggplot(aes(x = position, y = N, fill = type)) +
+#   geom_col() +
+#   scale_fill_manual(values = COLORS6) +
+#   theme_cowplot() +
+#   scale_y_continuous(expand = expansion(mult = c(0, 0.1))) +
+#   labs(x  = NULL , y = "Number of CH mutations\nobserved in the UKBiobank cohort", title = "DNMT3A", fill = NULL)
+
+
+genes_ch = "DNMT3A"
+mean_rates_blood = mean_rates |> filter(tissue_category == "blood_normal")
+
+# only plot the driver genes
+DNMT3A = boostdm_ch |> filter(gene_name == "DNMT3A")
+
+mutations_blood_DNMT3A = left_join(DNMT3A, mean_rates_blood, relationship = "many-to-many", by = "mut_type") |>
+  left_join(triplet_match_substmodel, by = "mut_type") |>
+  group_by(position, tissue_category, type) |>
+  summarize(mrate = sum(mle) * ncells) |>
+  select(position, type, tissue_category, mrate)
+
+library(ggh4x)
+df_mirror = bind_rows(mutations_blood_DNMT3A, UKB_DNMT3A_counts) |>
+  mutate(
+    tissue_category = ifelse(tissue_category == "blood_normal", "Expected mutrate\nblood", tissue_category),
+    tissue_category = factor(tissue_category, levels = c("UKBiobank CH", "Expected mutrate\nblood")),
+    mrate = ifelse(tissue_category == "Expected mutrate\nblood", 0-mrate, mrate)) |>
+  ungroup()
+
+# way to make the plot extend both upper and lower axes
+df_point = df_mirror |>
+  group_by(tissue_category, position) |>
+  summarize(mrate = sum(mrate), .groups = "drop_last") |>
+  summarize(mrate = max(abs(mrate)) * 1.1) |>
+  mutate(position = 500,
+         mrate = ifelse(tissue_category == "Expected mutrate\nblood", 0-mrate, mrate)) |>
+  ungroup()
+
+F5A = ggplot(df_point, aes(x = position, y = mrate)) +
+  geom_point(color = "white") +
+  geom_col(data = df_mirror, aes(fill = type)) +
+  geom_text(data = data.frame(tissue_category = factor("UKBiobank CH"), position = 50, mrate = 1500, label = "DNMT3A"),
+            aes(label = label)) +
+  facet_grid2(tissue_category ~ . , scales = "free") +
+  scale_fill_manual(values = COLORS6) +
+  theme_cowplot() +
+  panel_border() +
+  theme(legend.position = "none", panel.spacing.y = unit(0, "mm")) +
+  labs(y = "Number expected/\nobserved muts",  x = "AA position") +
+  scale_y_continuous(expand=expansion(mult=c(0,0)), breaks = scales::breaks_extended(n = 3), labels = abs)
+F5A
+
+saveRDS(F5A, "manuscript/figure_panels/figure_5/figure_5A.rds")
+
+
+#### Figure 5B-C-D
+
+# calculate expected number of mutated cells
 calc_exp_muts = function(expected_rates, mut_positions, metadata, ratios, ncells) {
   expected_rates |>
     inner_join(mut_positions, by = "mut_type", relationship = "many-to-many") |>
@@ -48,7 +130,6 @@ calc_exp_muts = function(expected_rates, mut_positions, metadata, ratios, ncells
               age = mean(age), .groups = "drop_last") |>
     summarise(across(c(mle, cilow, cihigh, age), mean), .groups = "drop")
 }
-
 
 plot_figures = function(driver_sites, y_label) {
   driver_rates = calc_exp_muts(expected_rates, driver_sites, metadata= metadata, ratios = ratios, ncells = ncells)
@@ -75,16 +156,30 @@ DNMT3A_R882H_hotspot = CH_bDM[aachange == "R882H" & gene_name == "DNMT3A", .N, c
 DNMT3A_R882H_hotspot_plots = plot_figures(DNMT3A_R882H_hotspot, "Number of cells with\nDNMT3A R882H mutation")
 
 DNMT3A_drivers = CH_bDM[gene_name == "DNMT3A" & driver == TRUE , .N, c("gene_name", "mut_type", "aachange", "position", "driver")]
-DNMT3A = plot_figures(DNMT3A_drivers, "Number of cells with\n DNMT3A driver mutation")
+DNMT3A_driver_plot = plot_figures(DNMT3A_drivers, "Number of cells with\n DNMT3A driver mutation")
 
+
+# comparison for Masha:
 TET2_drivers = CH_bDM[gene_name == "TET2" & driver == TRUE , .N, c("gene_name", "mut_type", "aachange", "position", "driver")]
-TET2 = plot_figures(TET2_drivers, "Number of cells with\nTET2 driver mutation")
+TET2_driver_plot = plot_figures(TET2_drivers, "Number of cells with\nTET2 driver mutation")
+ggsave("plots/blood/masha_exploration/TET2_driver_plot.png", TET2_driver_plot, width = 5, height = 4.5, bg = "white")
 
 TP53_drivers = CH_bDM[gene_name == "TP53" & driver == TRUE , .N, c("gene_name", "mut_type", "aachange", "position", "driver")]
-TP53 = plot_figures(TP53_drivers, "Number of cells with\nTP53 driver mutation")
+TP53_driver_plot = plot_figures(TP53_drivers, "Number of cells with\nTP53 driver mutation")
+ggsave("plots/blood/masha_exploration/TP53_driver_plot.png", TP53_driver_plot, width = 5, height = 4.5, bg = "white")
+
+TET2_drivers = CH_bDM[gene_name == "TET2", .N, c("gene_name", "mut_type", "aachange", "position", "driver")]
+TET2_all_plot = plot_figures(TET2_drivers, "Number of cells with\nTET2 any mutation")
+ggsave("plots/blood/masha_exploration/TET2_all_plot.png", TET2_all_plot, width = 5, height = 4.5, bg = "white")
+
+TP53_drivers = CH_bDM[gene_name == "TP53", .N, c("gene_name", "mut_type", "aachange", "position", "driver")]
+TP53_all_plot = plot_figures(TP53_drivers, "Number of cells with\nTP53 any mutation")
+ggsave("plots/blood/masha_exploration/TP53_all_plot.png", TP53_all_plot, width = 5, height = 4.5, bg = "white")
+
+# add additional genes (for supplementary)z
 
 # make the general figure:
-plots = c(DNMT3A, TET2, TP53)
+plots = c(DNMT3A_driver_plot, TET2_driver_plot, TP53_driver_plot)
 F5B = wrap_plots(plots[c(2,4,6)], byrow = FALSE) |> prep_plot(label = "B")
 F5C = wrap_plots(plots[c(1,3,5)], byrow = FALSE) |> prep_plot(label = "C")
 
