@@ -1,4 +1,5 @@
 library(httr2)
+library(R.utils)
 
 
 dirs = c("raw_data", "raw_data/blood", "raw_data/lung", "raw_data/colon","raw_data/lung",
@@ -17,7 +18,8 @@ dirs = c("raw_data", "raw_data/blood", "raw_data/lung", "raw_data/colon","raw_da
 
 for (dir in dirs) {
   if(!dir.exists(dir)) {dir.create(dir)}
-  }
+}
+
 
 
 

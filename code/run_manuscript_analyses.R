@@ -1,6 +1,8 @@
 # Run manuscript analyses:
 library(tictoc) # for speed testing
 
+renv::restore()
+
 # 0 (download data sources) automatically:
 if(!all(dir.exists("raw_data/blood/filtering_output_AX001/"),
         dir.exists("raw_data/colon//"))) {
@@ -8,14 +10,12 @@ source("code/01_download_data/Download_data.R")
 }
 
 # additionally, download the data from BoostDM, BoostDM-CH, GENIE and COSMIC
-
-
 # 1. Run Mutrisk mutation rate estimates for all tissues (expected time ~1h)
 scripts = list.files("code/1_tissues/", recursive = TRUE, pattern = "pre", full.names = TRUE)
 for (script in scripts) {
   print(script)
   tic()
-  system(paste0("Rscript ", script), ignore.stdout = TRUE)
+  system(paste0("Rscript ", script))
   toc()
   gc()
 }
@@ -25,7 +25,7 @@ resource_scripts = list.files("code/2_resources//",  full.names = TRUE)
 for (script in resource_scripts) {
   print(script)
   tic()
-  system(paste0("Rscript ", script), ignore.stdout = TRUE, ignore.stderr = TRUE)
+  system(paste0("Rscript ", script))
   toc()
   gc()
 }
@@ -35,7 +35,7 @@ figure_scripts = list.files("code/3_figures/",  full.names = TRUE, recursive = T
 for (script in figure_scripts) {
   print(script)
   tic()
-  system(paste0("Rscript ", script), ignore.stdout = TRUE, ignore.stderr = TRUE)
+  system(paste0("Rscript ", script))
   toc()
   gc()
 }

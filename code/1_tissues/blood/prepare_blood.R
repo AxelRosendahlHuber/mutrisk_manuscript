@@ -6,6 +6,7 @@ library(MutationalPatterns)
 library(cowplot)
 library(wintr)
 library(mutrisk)
+library(R.utils)
 
 # [input]
 tissue = "blood"
@@ -16,7 +17,7 @@ outdir = paste0("processed_data/", tissue, "/")
 # get the annotated mutations per donor
 # for the blood samples this is not directly straightforward
 sample_mut_list = list.files("processed_data/blood/processed_blood_normal/", 'sample_mutations', full.names = TRUE)
-names(sample_mut_list) = gsub("_sample_mutations.txt.gz", "", basename(sample_mut_list))
+names(sample_mut_list) = gsub("annotated_mut_set_|_4_01_|_2_01_|_5_01_|standard_rho01.gz_sample_mutations.txt.gz", "", basename(sample_mut_list))
 cell_muts = lapply(sample_mut_list, fread) |>
   rbindlist(idcol = "donor") |>
   mutate(category = "normal")
@@ -25,7 +26,7 @@ cell_muts = lapply(sample_mut_list, fread) |>
 x = cell_muts |> filter(donor == "KX007") |> dplyr::select(sampleID, chr, pos, ref, alt)
 y = cell_muts |> filter(donor == "AX001") |> dplyr::select(sampleID, chr, pos, ref, alt)
 
-metadata = fread("raw_data/blood/metadata_matrix/Summary_cut.csv") |>
+metadata = fread("raw_data/blood/Summary_cut.csv") |>
   dplyr::rename(sampleID = PDID, donor = donor_id) |>
   dplyr::select(donor, sampleID, age, mean_depth) |>
   mutate(category = "normal")
@@ -41,7 +42,7 @@ metadata = metadata |>
   mutate(category = factor(category, levels = c("normal", "chemotherapy")))
 
 # double check on the metadata of Mitchell et al reveals that there are 361 samples with donor AX001 (match), and 315 samples with donor KX007 (no match)
-fread("raw_data/blood/metadata_matrix/Summary_cut.csv") |>
+fread("raw_data/blood/Summary_cut.csv") |>
   dplyr::rename(sampleID = PDID, donor = donor_id)  |>
   dplyr::select(sampleID, donor, age) |>
   distinct() |>
