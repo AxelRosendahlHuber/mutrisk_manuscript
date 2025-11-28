@@ -1,6 +1,6 @@
 # script to systematically run all scripts
 # script to run all scripts for the preparation
-scripts = list.files("code/1_tissues/", recursive = TRUE, pattern = "prepare_", full.names = TRUE)
+scripts = list.files("code/1_tissues/", recursive = TRUE, pattern = "pre", full.names = TRUE)
 
 library(tictoc) # for speed testing
 for (script in scripts) {

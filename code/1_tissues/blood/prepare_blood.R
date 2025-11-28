@@ -17,38 +17,18 @@ outdir = paste0("processed_data/", tissue, "/")
 # for the blood samples this is not directly straightforward
 sample_mut_list = list.files("processed_data/blood/processed_blood_normal/", 'sample_mutations', full.names = TRUE)
 names(sample_mut_list) = gsub("_sample_mutations.txt.gz", "", basename(sample_mut_list))
-cell_muts_normal = lapply(sample_mut_list, fread) |>
+cell_muts = lapply(sample_mut_list, fread) |>
   rbindlist(idcol = "donor") |>
   mutate(category = "normal")
-
-sample_mut_list = list.files("processed_data/blood/processed_blood_chemotherapy//", 'sample_mutations', full.names = TRUE)
-names(sample_mut_list) = gsub("_sample_mutations.txt.gz", "", basename(sample_mut_list))
-cell_muts_chemo = lapply(sample_mut_list, fread) |>
-  rbindlist(idcol = "donor") |>
-  mutate(category = "chemotherapy")
-
-cell_muts = rbind(cell_muts_normal, cell_muts_chemo)
 
 # proof that KX007 and AX001 have the same mutation data
 x = cell_muts |> filter(donor == "KX007") |> dplyr::select(sampleID, chr, pos, ref, alt)
 y = cell_muts |> filter(donor == "AX001") |> dplyr::select(sampleID, chr, pos, ref, alt)
 
-metadata_normal = fread("raw_data/blood/blood_normal/metadata_matrix/Summary_cut.csv") |>
+metadata = fread("raw_data/blood/metadata_matrix/Summary_cut.csv") |>
   dplyr::rename(sampleID = PDID, donor = donor_id) |>
   dplyr::select(donor, sampleID, age, mean_depth) |>
   mutate(category = "normal")
-
-metadata_chemo = fread("raw_data/blood/blood_chemotherapy/chemotherapy-v1.0/4_mutation_burden_analysis/data/Summary_All.csv") |>
-  filter(Exposure != "Normal") |>
-  dplyr::select(Sample, PDID, Age, Mean_depth) |>
-  dplyr::rename(sampleID = Sample, donor = PDID, age = Age, mean_depth = Mean_depth) |>
-  mutate(category = "chemotherapy")
-
-shared_sampleIDs = intersect(metadata_chemo$sampleID, cell_muts_chemo$sampleID)
-metadata_chemo = metadata_chemo |> filter(sampleID %in% shared_sampleIDs)
-cell_muts_chemo = cell_muts_chemo |> filter(sampleID %in% shared_sampleIDs)
-
-metadata = rbind(metadata_normal, metadata_chemo)
 
 metadata = metadata |>
   filter(donor != "KX007") |>
@@ -61,7 +41,7 @@ metadata = metadata |>
   mutate(category = factor(category, levels = c("normal", "chemotherapy")))
 
 # double check on the metadata of Mitchell et al reveals that there are 361 samples with donor AX001 (match), and 315 samples with donor KX007 (no match)
-fread("raw_data/blood/blood_normal/metadata_matrix/Summary_cut.csv") |>
+fread("raw_data/blood/metadata_matrix/Summary_cut.csv") |>
   dplyr::rename(sampleID = PDID, donor = donor_id)  |>
   dplyr::select(sampleID, donor, age) |>
   distinct() |>
@@ -89,8 +69,10 @@ fwrite(cell_muts_filtered, file = paste0("processed_data/", tissue, "/", tissue,
 fwrite(metadata_filtered, paste0(outdir, tissue, "_metadata.tsv"))
 
 # make list for signatures used for re-fitting:
-mitchell_2025_sigs = fread("raw_data/blood/blood_chemotherapy/chemotherapy-v1.0/5_Mutational_signature_analysis/mutational_signatures_analysis/SBS_signatures_profiles.txt") |>
+
+mitchell_2025_sigs = fread("raw_data/blood/mutational_signatures_analysis/SBS_signatures_profiles.txt") |>
   column_to_rownames("Type")
+
 mitchell_2025_sigs = mitchell_2025_sigs[mutrisk:::TRIPLETS_96, ]
 
 input_sig_list = list(

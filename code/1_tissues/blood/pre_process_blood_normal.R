@@ -12,7 +12,7 @@ if (!dir.exists(output_blood)) { dir.create(output_blood) }
 if (!dir.exists(output_blood_preprocessed)) { dir.create(output_blood_preprocessed) }
 
 # load files"
-clone_files = list.files("raw_data/blood/blood_normal/", pattern  = "annotated_mut_set", recursive = TRUE, full.names = TRUE)
+clone_files = list.files("raw_data/blood/", pattern  = "annotated_mut_set", recursive = TRUE, full.names = TRUE)
 clone_files = clone_files[!grepl("textClipping", clone_files)]
 
 for (file in clone_files) {

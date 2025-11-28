@@ -157,6 +157,11 @@ DNMT3A_R882H_hotspot_plots = plot_figures(DNMT3A_R882H_hotspot, "Number of cells
 
 DNMT3A_drivers = CH_bDM[gene_name == "DNMT3A" & driver == TRUE , .N, c("gene_name", "mut_type", "aachange", "position", "driver")]
 DNMT3A_driver_plot = plot_figures(DNMT3A_drivers, "Number of cells with\n DNMT3A driver mutation")
+ggsave("plots/blood/masha_exploration/DNMT3A_driver_plot.png", DNMT3A_driver_plot, width = 5, height = 4.5, bg = "white")
+
+DNMT3A_all_muts = CH_bDM[gene_name == "DNMT3A", .N, c("gene_name", "mut_type", "aachange", "position", "driver")]
+DNMT3A_all_plot = plot_figures(DNMT3A_all_muts, "Number of cells with\n DNMT3A any mutation")
+ggsave("plots/blood/masha_exploration/DNMT3A_all_plot.png", DNMT3A_all_plot, width = 5, height = 4.5, bg = "white")
 
 
 # comparison for Masha:

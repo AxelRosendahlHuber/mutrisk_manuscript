@@ -8,18 +8,17 @@ library(mutrisk)
 
 tissue = "colon"
 
-# Loading metadata
-metadata_IBD_normal = fread("raw_data/colon/Somatic evolution of the non-neoplastic IBD affected colon/cell_11495_mmc2.txt")
+metadata_IBD_normal = fread("raw_data/colon/normal/cell_11495_mmc2.txt")
 metadata_IBD_normal <- metadata_IBD_normal[!duplicated(metadata_IBD_normal$crypt_ID) &
                                              !duplicated(metadata_IBD_normal$crypt_ID, fromLast = TRUE),]
 # remove duplicated crypt id
-metadata_POL = readxl::read_excel("raw_data/colon/colon_hypermutation/Polymerase-master/Figures/input_files/Extended_Data_Table2.xlsx")
+metadata_POL = readxl::read_excel("raw_data/colon/hypermutated/Figures/input_files/Extended_Data_Table2.xlsx")
 
 # load data from normal and IBD colon samples
 # NOTE: data from normal and IBD colon samples is branch-specific, instead of colon specific
-normal_muts = fread("raw_data/colon/Somatic evolution of the non-neoplastic IBD affected colon/All_control_cohort_mutations_mapped_to_branches.txt") |>
+normal_muts = fread("raw_data/colon/normal/All_control_cohort_mutations_mapped_to_branches.txt") |>
   mutate(category = "normal")
-IBD_muts = fread("raw_data/colon/Somatic evolution of the non-neoplastic IBD affected colon/All_IBD_cohort_mutations_mapped_to_branches.txt") |>
+IBD_muts = fread("raw_data/colon/normal/All_IBD_cohort_mutations_mapped_to_branches.txt") |>
   dplyr::select(-Patient_ID) |>
   mutate(category = "IBD")
 
@@ -27,14 +26,14 @@ WT_muts = rbind(normal_muts, IBD_muts) |>
   dplyr::rename(sampleID = SampleID, chr = Chr, pos = Pos, ref = Ref, alt = Alt)
 
 # calculate the sensitivity for the individual clones (taking VAF and depth into account)
-patient_files = list.files("raw_data/colon/Somatic evolution of the non-neoplastic IBD affected colon/binary_genotype_matrices/",
+patient_files = list.files("raw_data/colon/normal/binary_genotype_matrices/",
                            pattern = "binary_matrix.txt", full.names = TRUE)
 names(patient_files) = gsub("_.*", "", basename(patient_files))
-total_depth_files = list.files("raw_data/colon/Somatic evolution of the non-neoplastic IBD affected colon/Pile-ups_read_counts/",
+total_depth_files = list.files("raw_data/colon/normal/Pile-ups_read_counts/",
                                pattern = "total_depth", full.names = TRUE)
 names(total_depth_files) = gsub("_.*", "", basename(total_depth_files))
 alt_allele_files = list.files(
-  "raw_data/colon/Somatic evolution of the non-neoplastic IBD affected colon/Pile-ups_read_counts/",
+  "raw_data/colon/normal/Pile-ups_read_counts/",
   pattern = "alt_allele_reads",
   full.names = TRUE)
 
@@ -109,7 +108,7 @@ WT_muts = left_join(cell_muts, IBD_ids, by = "sampleID") |>
   filter(!is.na(category))
 
 # load data from POLE POLD1 study (Robinson et al., Nature Genetics 2021, https://doi.org/10.1038/s41588-021-00930-y)
-POL_muts = fread("raw_data/colon/colon_hypermutation/Polymerase-master/DNAPolymerase_NG_somatic_SBS_ID_combined.txt")
+POL_muts = fread("raw_data/colon/hypermutated/DNAPolymerase_NG_somatic_SBS_ID_combined.txt")
 metadata_crypts = metadata_POL |>
   filter(sample_type == "intestinal crypt") |>
   mutate(category = gsub(" .*", "", germline_mutation)) |>
@@ -240,6 +239,3 @@ donors3 =  rbindlist(rates, use.names = TRUE, fill = TRUE) |> pull(donor) |> uni
 donors2  = sig_donor_rates$donor |> unique()
 setdiff(donors, donors3)
 setdiff(donors, donors2)
-
-
-

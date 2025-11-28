@@ -88,7 +88,6 @@ input_signatures = c("SBS1", "SBS4", "SBS5", "SBS2", "SBS13", "SBS92", "SBS16") 
 list_results = list()
 for (i in unique(metadata$category)) {
 
-
   mutrisk_pipeline(output_path = output_path,
                                      cell_muts = cell_muts |> filter(category == i),
                                      metadata = metadata |> filter(category == i),

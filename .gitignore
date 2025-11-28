@@ -8,5 +8,5 @@ processed_data/
 raw_data/
 plots/
 manuscript/
-
-
+renv/library/
+renv/
