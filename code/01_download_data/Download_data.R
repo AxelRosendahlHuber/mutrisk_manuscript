@@ -1,5 +1,26 @@
 library(httr2)
 
+
+dirs = c("raw_data", "raw_data/blood", "raw_data/lung", "raw_data/colon","raw_data/lung",
+         "processed_data", "processed_data/blood", "processed_data/lung", "processed_data/colon",
+         "processed_data", "processed_data/blood", "processed_data/lung", "processed_data/colon",
+         "plots", "plots/coverage_saturation", "plots/blood", "plots/lung", "plots/colon",
+         "manuscript/", "manuscript/Figure_1/", "manuscript/Figure_2/", "manuscript/Figure_3/", "manuscript/Figure_4/",
+         "manuscript/Figure_5/", "manuscript/figure_panels/",  "manuscript/Schematic_poster_presentations/",
+         "manuscript/Supplementary_Figures/", "manuscript/Supplementary_Figures/Figure_S1/",
+         "manuscript/Supplementary_Figures/Figure_S2/",
+         "manuscript/Supplementary_Figures/Figure_S3/","manuscript/Supplementary_Figures/Figure_S4/",
+         "manuscript/Supplementary_Figures/Figure_S5/", "manuscript/Supplementary_Figures/Figure_S6/",
+         "manuscript/Supplementary_notes/", "manuscript/Supplementary_notes/Supplementary_Note_I/",
+         "manuscript/Supplementary_notes/Supplementary_Note_III//",
+         "manuscript/Supplementary_Tables/")
+
+for (dir in dirs) {
+  if(!dir.exists(dir)) {dir.create(dir)}
+  }
+
+
+
 # tools to download the main mutation data from Mendeley data
 urls <- c("https://prod-dcd-datasets-cache-zipfiles.s3.eu-west-1.amazonaws.com/np54zjkvxr-1.zip",
           "https://prod-dcd-datasets-cache-zipfiles.s3.eu-west-1.amazonaws.com/x3vsxpspn4-2.zip",
