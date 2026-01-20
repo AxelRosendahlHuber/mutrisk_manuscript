@@ -194,6 +194,7 @@ for (i in unique(metadata$category)) {
                                    metadata = metadata |> filter(category == i),
                                    name = i,
                                    input_signatures = input_signatures,
+                                   multiple_refit_methods = TRUE,
                                    sensitivity_correction =  TRUE)
 }
 

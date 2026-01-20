@@ -159,15 +159,29 @@ barplot_lung = make_gene_barplot(boostdm, ratios, gene_of_interest = "TP53", tis
                                  cell_probabilities = FALSE)
 barplot_blood = make_gene_barplot(boostdm, ratios, gene_of_interest = "TP53", tissue_select = "blood",
                                   tissue_name = "Blood", cell_probabilities = FALSE) + labs(y = NULL)
-F3A = wrap_plots(barplot_colon, barplot_lung, barplot_blood, ncol = 1, guides = "collect") &
-  labs(title = NULL)
+F3A = wrap_plots(barplot_colon, barplot_lung, barplot_blood, ncol = 3, guides = "collect") &
+  labs(title = "TP53 mutations across normal tissues")
 saveRDS(F3A, "manuscript/figure_panels/figure_3/figure_3A.rds")
 
-# Supplementary Figure X - TP53 for POLD1 and normal colon:
-POLD1_mutation = make_gene_barplot(boostdm, ratios, gene_of_interest = "TP53",
-                                 tissue_select = "colon", category_select = "POLD1", cell_probabilities = FALSE) +
-  ggh4x::facet_grid2(driver ~ ., strip = strip_themed(background_y = elem_list_rect(fill = c("#C03830", "#707071")),
-                                                      text_y = elem_list_text(colour = c("white"), face = "bold")))
+# Supplementary Figure 2 - TP53 for all tissues
+tissue_categories = ratios |> select(tissue, category) |> distinct()
+tissue_categories = tissue_categories[-5]
+plot_list = list()
+for (i in 1:nrow(tissue_categories)) {
+
+  tissue_name = paste(as.character(tissue_categories[i]), collapse = "\n")
+  plot_list[[i]] = make_gene_barplot(boostdm, ratios, gene_of_interest = "TP53",
+                                     tissue_select = tissue_categories$tissue[i],
+                                     category_select = tissue_categories$category[i],
+                                    tissue_name = tissue_name, cell_probabilities = FALSE) +
+    labs(title = NULL, y = "Number of cells \nwith mutation") + theme_classic()
+}
+
+plot_list = c(plot_list)
+figure_S2 = wrap_plots(plot_list, nrow = 4) + plot_layout(guides = "collect") +
+  plot_annotation(title = 'TP53: Expected number of mutated cells')
+ggsave("manuscript/Supplementary_Figures/Figure_S2/Figure_S2.png", figure_S2, width = 14, height = 12)
+ggsave("manuscript/Supplementary_Figures/Figure_S2/Figure_S2.pdf", figure_S2, width = 14, height = 12)
 
 # APC colon barplot
 APC_colon_normal = make_gene_barplot(boostdm, ratios, gene_of_interest = "APC",
