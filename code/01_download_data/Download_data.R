@@ -21,8 +21,6 @@ for (dir in dirs) {
 }
 
 
-
-
 # tools to download the main mutation data from Mendeley data
 urls <- c("https://prod-dcd-datasets-cache-zipfiles.s3.eu-west-1.amazonaws.com/np54zjkvxr-1.zip",
           "https://prod-dcd-datasets-cache-zipfiles.s3.eu-west-1.amazonaws.com/x3vsxpspn4-2.zip",

@@ -1,10 +1,9 @@
 # Run manuscript analyses:
+renv::restore()
 library(tictoc) # for speed testing
 
-renv::restore()
-
 # 0 (download data sources) automatically:
-if(!all(dir.exists("raw_data/blood/filtering_output_AX001/"),
+if(!all(dir.exists("raw_data/blood/mutational_signatures_analysis/burden_all.txt/"),
         dir.exists("raw_data/colon//"))) {
 source("code/01_download_data/Download_data.R")
 }

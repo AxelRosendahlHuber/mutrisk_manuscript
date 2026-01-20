@@ -133,4 +133,3 @@ ratios = lapply(dnds_files, \(x) {
   rbindlist(idcol = "category") |>
   mutate(category = factor(category, levels = levels(metadata$category)))
 fwrite(ratios, file = paste0("processed_data/", tissue, "/", tissue, "_mut_ratios.tsv.gz"))
-

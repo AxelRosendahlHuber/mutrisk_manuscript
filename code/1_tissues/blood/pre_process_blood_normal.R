@@ -1,6 +1,7 @@
 # pre-process normal blood mutations
 # min # min tissue run
 # parts of the code taken from: https://github.com/emily-mitchell/normal_haematopoiesis
+renv::restore()
 library(data.table)
 library(tidyverse)
 library(BSgenome.Hsapiens.UCSC.hg19)

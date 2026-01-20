@@ -285,31 +285,4 @@ F3C_bottom = wrap_plots(tissue_plots[-1], widths = c(2.8, 1))
 F3C = tissue_plots[[1]] / F3C_bottom
 F3C
 
-# # old plot (keeping the code just in case this is needed)
-# df_total_muts = dotplot_df |>
-#   filter(category != "chemotherapy") |>
-#   left_join(metadata |> select(-sampleID) |> distinct()) |>
-#   group_by(tissue, category, tissue_category, donor, age) |>
-#   summarize(mle = sum(mle),
-#             .groups = "drop")
-#
-# df_mean_muts = df_total_muts |>
-#   group_by(tissue, category, tissue_category) |>
-#   summarize(sd = stats::sd(mle),
-#             mle = mean(mle))
-#
-# F3C = df_mean_muts |>
-#   ggplot(aes(x = category, y = mle,  fill = tissue_category)) +
-#   geom_col(alpha = 0.75) +
-#   geom_errorbar(aes(ymin = mle - sd, ymax = mle + sd), width = 0) +
-#   ggbeeswarm::geom_beeswarm(data = df_total_muts,  size = 1.3, cex = 2) +
-#   scale_fill_manual(values = tissue_category_colors) +
-#   scale_y_continuous(limits = c(0, NA), labels = label_comma(), expand = expansion(mult = c(0, 0.1))) +
-#   scale_alpha_manual(values = c(1, 0.5)) +
-#   facet_wrap(. ~ tissue, scale = "free", space = "free_x") +
-#   theme_cowplot() +
-#   theme(legend.position = "none") +
-#   labs(y = "number of cells with TP53 mutations", x = NULL)
-# F3C
-
 
