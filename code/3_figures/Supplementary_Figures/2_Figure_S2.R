@@ -53,7 +53,7 @@ for (name in names(sig_contri_files)) {
 }
 
 sig_contribution_plot = wrap_plots(sig_contribution_plot)
-ggsave("manuscript/Supplementary_Figures/Figure_S3/Figure_S3_all.png",
+ggsave("manuscript/Supplementary_Figures/Figure_S2/Figure_S2_all.png",
        sig_contribution_plot, width = 15, height = 10)
 
 
@@ -80,7 +80,7 @@ sig_contribution_plot = ggplot(mean_signatures_ordered, aes(x = name, y = contri
   scale_y_continuous(expand = expansion(mult = c(0, 0))) +
   labs(y = "relative signature contribution", title = "Signatures active across the 8 cohorts")
 sig_contribution_plot
-ggsave("manuscript/Supplementary_Figures/Figure_S3/Figure_S3.png" , sig_contribution_plot,
+ggsave("manuscript/Supplementary_Figures/Figure_S2/Figure_S2.png" , sig_contribution_plot,
        width = 8, height = 5, bg = "white")
 
 #  TODO use for the blood signature SBS1, SBS5 and SBS blood.

@@ -32,9 +32,10 @@ for (tissue in c("colon", "blood", "lung")) {
 expected_rates = rbindlist(expected_rate_list, idcol = "tissue", use.names = TRUE)
 ratios = rbindlist(ratio_list, idcol = "tissue", use.names = TRUE)
 
+
 # filters
 gene_of_interest = "TP53"
-  merge_mutrisk_drivers = function(boostdm, ratios, gene_of_interest, tissue_select = "colon", tissue_name,
+  merge_mutrisk_drivers = function(boostdm, ratios, expected_rates,  gene_of_interest, tissue_select = "colon", tissue_name,
                                    category_select = "normal", cell_probabilities = FALSE,
                                    individual = FALSE, older_individuals = TRUE) {
 
@@ -153,14 +154,13 @@ prob_barplot_colon = make_gene_barplot(boostdm, ratios, gene_of_interest = "TP53
 
 # Make a barplot indicating the number of mutations across TP53 across the three tissues (colon, lung, blood)
 barplot_colon = make_gene_barplot(boostdm, ratios, gene_of_interest = "TP53", tissue_select = "colon",
-                                  tissue_name = "Colon", cell_probabilities = FALSE) + labs(y = NULL)
+                                  tissue_name = "Colon", cell_probabilities = FALSE) + labs(y = NULL, x = NULL)
 barplot_lung = make_gene_barplot(boostdm, ratios, gene_of_interest = "TP53", tissue_select = "lung",
                                  tissue_name = "Lung", category_select = "non-smoker",
-                                 cell_probabilities = FALSE)
+                                 cell_probabilities = FALSE) + labs(x = NULL)
 barplot_blood = make_gene_barplot(boostdm, ratios, gene_of_interest = "TP53", tissue_select = "blood",
                                   tissue_name = "Blood", cell_probabilities = FALSE) + labs(y = NULL)
-F3A = wrap_plots(barplot_colon, barplot_lung, barplot_blood, ncol = 3, guides = "collect") &
-  labs(title = "TP53 mutations across normal tissues")
+F3A = wrap_plots(barplot_colon, barplot_lung, barplot_blood, ncol = 1, guides = "collect")
 saveRDS(F3A, "manuscript/figure_panels/figure_3/figure_3A.rds")
 
 # Supplementary Figure 2 - TP53 for all tissues
@@ -173,15 +173,16 @@ for (i in 1:nrow(tissue_categories)) {
   plot_list[[i]] = make_gene_barplot(boostdm, ratios, gene_of_interest = "TP53",
                                      tissue_select = tissue_categories$tissue[i],
                                      category_select = tissue_categories$category[i],
-                                    tissue_name = tissue_name, cell_probabilities = FALSE) +
-    labs(title = NULL, y = "Number of cells \nwith mutation") + theme_classic()
+                                    tissue_name = tissue_name, cell_probabilities = TRUE) +
+    labs(title = NULL) + theme_classic()
 }
 
 plot_list = c(plot_list)
-figure_S2 = wrap_plots(plot_list, nrow = 4) + plot_layout(guides = "collect") +
+figure_S3 = wrap_plots(plot_list, nrow = 4) + plot_layout(guides = "collect") +
   plot_annotation(title = 'TP53: Expected number of mutated cells')
-ggsave("manuscript/Supplementary_Figures/Figure_S2/Figure_S2.png", figure_S2, width = 14, height = 12)
-ggsave("manuscript/Supplementary_Figures/Figure_S2/Figure_S2.pdf", figure_S2, width = 14, height = 12)
+figure_S3
+ggsave("manuscript/Supplementary_Figures/Figure_S3/Figure_S3.png", figure_S3, width = 14, height = 12)
+ggsave("manuscript/Supplementary_Figures/Figure_S3/Figure_S3.pdf", figure_S3, width = 14, height = 12)
 
 # APC colon barplot
 APC_colon_normal = make_gene_barplot(boostdm, ratios, gene_of_interest = "APC",
@@ -238,13 +239,14 @@ saveRDS(list(F4A1, F4A2), "manuscript/figure_panels/figure_4/figures_AB.rds")
 
 # plot the number of mutations for TP53 as individual points
 dotplot_list = list()
+dotplot_list_nocb = list()
 for (i in 1:nrow(color_df)) {
 
   category_select = color_df$category[i]
   tissue_select = color_df$tissue[i]
 
   # make dotplots with the individual variation:
-  dotplot_list[[i]] = merge_mutrisk_drivers(boostdm, ratios, gene_of_interest = "TP53",
+  dotplot_list[[i]] = merge_mutrisk_drivers(boostdm, ratios, expected_rates, gene_of_interest = "TP53",
                                             tissue_select = tissue_select, category_select = category_select,
                                     individual = "all")[[1]] |>
     group_by(donor, driver) |>
@@ -262,6 +264,7 @@ df_total_muts = dotplot_df |>
   mutate(category = factor(category, levels = unique(color_df$category)))
 
 tissue_plots = tissue_plots_raw =  list()
+
 tissue_order = c("colon", "lung", "blood")
 for (i in 1:3) {
 
@@ -298,5 +301,15 @@ F3C
 F3C_bottom = wrap_plots(tissue_plots[-1], widths = c(2.8, 1))
 F3C = tissue_plots[[1]] / F3C_bottom
 F3C
+
+
+# calculate for the individual donors (colibactin) the number of expected mutations:
+# read in the signature-sepecific activity across donors
+colon_sig_rates = fread("processed_data/colon/colon_sig_patient_rates.tsv.gz")
+colon_sig_activity = fread("processed_data/colon/normal/normal_sig_rate_per_sample.tsv.gz")
+
+colon_sig_activity |>
+  mutate(clb = ifelse(clb == "SBS88", "SBS88", "other")) |>
+  group_by(sampleID, donor, clb)
 
 

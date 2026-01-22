@@ -28,6 +28,8 @@ list_wgs_muts = lapply(list_muts_tissue, dplyr::select, sampleID, chr, pos, ref,
   rbindlist(idcol = "tissue") |>
   filter(category != "chemotherapy")
 
+Supp_tables = list()
+
 wgs_muts = list_wgs_muts  |>
   group_by(tissue, sampleID) |>
   count() |>
@@ -64,6 +66,9 @@ sample_wgs_exome = left_join(wgs_muts, by = c("sampleID", "tissue"), sample_mut_
   group_by(tissue) |>
   arrange(tissue, exome_muts) |>
   mutate(id = 1:dplyr::n()) |> ungroup()
+
+Supp_tables$Supplementary_table_1 = sample_wgs_exome |> select(-id)
+
 sample_wgs_exome_long = pivot_longer(sample_wgs_exome, c( -tissue, -sampleID, -id))  |>
   filter(!is.na(value)) |>
   group_by(sampleID) |>
@@ -79,21 +84,25 @@ meta_age = lapply(metadata_files, \(x) fread(x) |>
   distinct()
 fwrite(meta_age, "processed_data/metadata_all.txt.gz")
 
-# Numbers for the manuscript:
-# take only the samples for which the mutations are also matching all filters
-meta_age |>
-  inner_join(sample_wgs_exome) |>
-  select(donor, tissue) |>
-  group_by(tissue) |>
-  distinct() |>
-  count()
+Supp_tables$Supplementary_table_2 = meta_age |> select(tissue, category, donor, age) |> distinct()
+Supp_tables$Supplementary_table_3 = meta_age
 
-meta_age |>
+# Numbers for the manuscript: Take only the samples for which the mutations are also matching all filters
+n_clones_n_donors = meta_age |>
   inner_join(sample_wgs_exome) |>
-  select(sampleID, tissue) |>
   group_by(tissue) |>
-  distinct() |>
-  count()
+  summarize(number_of_clones = n_distinct(sampleID),
+            number_of_donors = n_distinct(donor))
+
+Supp_tables$Supplementary_table_4 = n_clones_n_donors
+
+n_clones_n_donors = meta_age |>
+  inner_join(sample_wgs_exome) |>
+  group_by(tissue, category) |>
+  summarize(number_of_clones = n_distinct(sampleID),
+            number_of_donors = n_distinct(donor))
+Supp_tables$Supplementary_table_5 = n_clones_n_donors
+
 meta_age$age |> max()
 meta_age$age |> min()
 
@@ -440,8 +449,6 @@ get_mb_rates = function(context_file, genome_bed) {
   return(genome_df)
 }
 
-
-# Setting up some dummy data
 seqinfo <- rtracklayer::SeqinfoForUCSCGenome("hg19")
 seqinfo <- keepStandardChromosomes(seqinfo)
 granges <- tileGenome(seqinfo, tilewidth = 1e5, cut.last.tile.in.chrom = T)
@@ -480,28 +487,6 @@ genomic_rate_plot
 ggsave("manuscript/Schematic_poster_presentations/100Kb_genomic_rate.png", genomic_rate_plot, width = 7, height = 4, dpi = 600)
 
 
-# # make full picture with patchwork method
-# library(png)
-# library("magick")
-# library(ggpubr)
-# Figure_1D = magick::image_read("plots/manuscript/png_subpanels/Figure_1D.png")
-#
-# Fig_1D <- ggplot() +
-#   background_image(Figure_1D)
-
-# design = "
-# 111
-# 234
-# 555
-# "
-#
-# Figure_1 = wrap_plots(aging_rate_plot,
-#                       genomic_rate_plot, profiles_tissues, profiles_signatures, Fig_1D) +
-#   plot_annotation(tag_levels = 'A') +
-#   plot_layout(design = design) &
-#   theme(plot.margin =  margin(5,5,5,5, unit = "mm"),  plot.tag = element_text(face = 'bold'))
-# ggsave("plots/manuscript/main_figures/figure_1.png", Figure_1, width = 13, height = 13, bg = "white")
-# ggsave("plots/manuscript/main_figures/figure_1.svg", Figure_1, width = 13, height = 13, bg = "white")
-
-
-
+# Save supplementary tables 1-3
+# also update this for the exposed conditions:
+openxlsx::write.xlsx(Supp_tables, file = "manuscript/Supplementary_Tables/Supplementary_Tables_1-5.xlsx")

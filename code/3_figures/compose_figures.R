@@ -41,7 +41,7 @@ tissue_plots_raw = readRDS("manuscript/figure_panels/figure_3/figure_3CDE.rds")
 tissue_plots = mapply(prep_plot, tissue_plots_raw, label = c("C", "D", "E"), all_margin = mg)
 
 figure_3_bottom = wrap_plots(tissue_plots, nrow = 1, widths = c(4, 3, 1.2))
-figure_3 = figure_3_top / figure_3_bottom
+figure_3 = figure_3_top / figure_3_bottom + plot_layout(heights = c(1.2, 1))
 
 ggsave("manuscript/Figure_3/figure_3.png", figure_3, width = 15, height = 10)
 ggsave("manuscript/Figure_3/figure_3.pdf", figure_3, width = 15, height = 10)

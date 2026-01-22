@@ -123,7 +123,7 @@ treemaps = colon_apc_mut_counts |>
   group_by(Hugo_Symbol) |>
   mutate(percentage = round(n*100 / sum(n),2)) |>
   ggplot(aes(area = n, fill = mutation_type)) +
-  treemapify::geom_treemap() +  # use the treemapify package to make a treeplot
+  treemapify::geom_treemap(alpha = 0.7) +  # use the treemapify package to make a treeplot
   ggsci::scale_fill_igv() +
   facet_wrap(Hugo_Symbol ~ . ) +
   cowplot::theme_cowplot() +

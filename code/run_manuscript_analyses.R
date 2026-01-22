@@ -2,11 +2,11 @@
 renv::restore()
 library(tictoc) # for speed testing
 
-# 0 (download data sources) automatically:
-if(!all(dir.exists("raw_data/blood/mutational_signatures_analysis/burden_all.txt/"),
-        dir.exists("raw_data/colon//"))) {
-source("code/01_download_data/Download_data.R")
-}
+# # 0 (download data sources) automatically:
+# if(!all(dir.exists("raw_data/blood/mutational_signatures_analysis/burden_all.txt/"),
+#         dir.exists("raw_data/colon//"))) {
+# source("code/01_download_data/Download_data.R")
+# }
 
 # additionally, download the data from BoostDM, BoostDM-CH, GENIE and COSMIC
 # 1. Run Mutrisk mutation rate estimates for all tissues (expected time ~1h)

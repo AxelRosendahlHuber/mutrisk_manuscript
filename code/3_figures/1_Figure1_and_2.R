@@ -19,9 +19,6 @@ metadata = lapply(md_files, fread) |>
 metadata |> select(tissue, age, donor) |> distinct() |>
     filter(donor %in% c("O340", "PD34215", "KX008"))
 
-# find out more information about the donor: Male/Female
-groupby = "donor"
-
 save_plots = function(plot_list, path, name, width = 13, height = 8) {
 
   for (plot_name in names(plot_list))
@@ -37,7 +34,6 @@ format_bignum = function(n){
     n >= 1e3 ~ paste(format(round(n), big.mark = ",", scientific = FALSE), "cells"),
     TRUE ~ as.character(n))
 }
-
 
 plot_intersect_boxplot = function(intersects, analysis_name, groupby) {
 
@@ -137,27 +133,28 @@ plot_prob_curve_ci = function(probability_rates, analysis_name, groupby, ncell_d
 
 # saturation vs age functions:
 # preprocessing function for the saturation function
-get_saturation_ci = function(intersects) {
-  meta_donor = metadata |> select(donor, age) |> distinct()
+get_saturation_ci = function(intersects, groupby) {
+  meta_donor = metadata |> select(contains(c(groupby, "age"))) |> distinct()
+  intersects[[groupby]] = intersects$groupID
+
   intersects |>
-    dplyr::rename(donor = groupID) |>
     left_join(meta_donor) |>
     select(-ncells) |>
     pivot_wider(names_from = "name", values_from = "prob") |>
     mutate(tissue_category = paste0(tissue, "_", category))
 }
 
-get_saturation = function(intersects) {
-  meta_donor = metadata |> select(donor, age) |> distinct()
+get_saturation = function(intersects, groupby) {
+  meta_donor = metadata |> select(contains(c(groupby, "age"))) |> distinct()
+  intersects[[groupby]] = intersects$groupID
   intersects |>
-    dplyr::rename(donor = groupID) |>
     left_join(meta_donor) |>
     mutate(tissue_category = paste0(tissue, "_", category))
 }
 
 # function to code the age vs. saturation as a dotplot
-plot_saturation_age = function(intersects_ci, analysis_name) {
-  get_saturation(intersects_ci) |>
+plot_saturation_age = function(intersects_ci, analysis_name, groupby) {
+  get_saturation(intersects_ci, groupby) |>
     select(-ncells) |>
     pivot_wider(values_from = "prob") |>
     ggplot(aes(x = age, y = mid_estimate, fill = tissue_category)) +
@@ -170,8 +167,8 @@ plot_saturation_age = function(intersects_ci, analysis_name) {
 }
 
 # function to code the age vs. saturation as a pointrange plot with confidence interval of the mutation rate
-plot_saturation_age_ci = function(intersects_ci, analysis_name)  {
-  get_saturation_ci(intersects_ci) |>
+plot_saturation_age_ci = function(intersects_ci, analysis_name, groupby)  {
+  get_saturation_ci(intersects_ci, groupby) |>
     ggplot(aes(x = age, fill = tissue_category)) +
     geom_pointrange(aes(ymin = low_estimate, y = mid_estimate, ymax = high_estimate), shape = 21, color = "black", stroke = 0.5) +
     facet_grid(~ tissue, scales = "free_x", space = "free") +
@@ -339,11 +336,15 @@ analyze_probability = function(gene_counts, analysis_name, groupby = "donor",
     nrow = 1
     plot_list[["plot_saturation_curve_ci"]] = plot_prob_curve_ci(probability_rates = probability_rates, analysis_name, groupby, ncell_df = tissue_ncells_ci, nrow = nrow)
 
-    plot_list[["plot_saturation_curve_ci_single_ncells"]] = plot_prob_curve_ci(probability_rates = probability_rates |> filter(groupID %in% c("O340", "PD34215", "KX008")),
+    metadata_donor = metadata |> select(donor, sampleID) |> distinct()
+    metadata_donor$groupID = metadata_donor[[groupby]]
+    probability_rates_select = left_join(probability_rates, metadata_donor) |>
+      filter(donor %in% c("O340", "PD34215", "KX008"))
+    plot_list[["plot_saturation_curve_ci_single_ncells"]] = plot_prob_curve_ci(probability_rates = probability_rates_select,
                                                                         analysis_name, groupby, ncell_df = tissue_ncells_ci, nrow = nrow)
 
-    plot_list[["plot_saturation_curve_ci_single_ncells_line"]] = plot_prob_curve_ci(probability_rates = probability_rates |> filter(groupID %in% c("O340", "PD34215", "KX008")),
-                                                                               analysis_name, groupby, ncell_df = tissue_ncells_ci |> filter(tissue == "none"), nrow = nrow)
+    plot_list[["plot_saturation_curve_ci_single_ncells_line"]] = plot_prob_curve_ci(probability_rates = probability_rates_select,
+                                                                                  analysis_name, groupby, ncell_df = tissue_ncells_ci |> filter(tissue == "none"), nrow = nrow)
 
 
 
@@ -355,8 +356,8 @@ analyze_probability = function(gene_counts, analysis_name, groupby = "donor",
     labs(subtitle = NULL)
 
   # plot the saturation vs age:
-  plot_list[["plot_saturation_age"]] = plot_saturation_age(intersects_ci |> filter(name == "mid_estimate"), analysis_name)
-  plot_list[["plot_saturation_age_ci"]] = plot_saturation_age_ci(intersects_ci, analysis_name)
+  plot_list[["plot_saturation_age"]] = plot_saturation_age(intersects_ci |> filter(name == "mid_estimate"), analysis_name, groupby)
+  plot_list[["plot_saturation_age_ci"]] = plot_saturation_age_ci(intersects_ci, analysis_name, groupby)
 
   return(list(intersects = intersects, rates = probability_rates, result_plot_df = plot_results,  plot_list = plot_list))
 }
@@ -373,6 +374,7 @@ gene_counts = gene_counts |>
   setDT()
 gene_counts = sample_n(gene_counts, 1e4)
 
+# analyze the frequency of mutations using the groupby setting to "donor". Used for the main figures
 exome_analysis = analyze_probability(gene_counts = gene_counts, analysis_name = "exome analysis", groupby = "donor")
 exome_analysis_normal = analyze_probability(gene_counts = gene_counts, analysis_name = "exome analysis", groupby = "donor", filter_normal = TRUE)
 save_plots(exome_analysis_normal$plot_list, path = "plots/coverage_saturation/", name = "normal_exome", width = 7, height = 5)
@@ -385,6 +387,22 @@ ggsave("plots/coverage_saturation/presentation_line1.png", exome_analysis_normal
        width = 10, height = 3.7)
 ggsave("plots/coverage_saturation/presentation_line2.png", exome_analysis_normal$plot_list$plot_saturation_curve_ci,
        width = 10, height = 3.7)
+
+
+# perform similar analysis, now setting the groupby to "sampleID". Used for supplementary figures
+sampleID_exome_analysis = analyze_probability(gene_counts = gene_counts, analysis_name = "exome analysis", groupby = "sampleID")
+sampleID_exome_analysis_normal = analyze_probability(gene_counts = gene_counts, analysis_name = "exome analysis", groupby = "sampleID", filter_normal = TRUE)
+save_plots(sampleID_exome_analysis_normal$plot_list, path = "plots/coverage_saturation/", name = "sampleID_normal_exome", width = 7, height = 5)
+save_plots(sampleID_exome_analysis_normal$plot_list, path = "plots/coverage_saturation/", name = "sampleID_normal_exome_wideplot", width = 10, height = 5)
+
+figure_S4A = sampleID_exome_analysis_normal$plot_list$plot_saturation_curve_ci
+figure_S4B = sampleID_exome_analysis_normal$plot_list$plot_saturation_age + labs(x = "Age (years)") +
+  theme(legend.position = "inside", legend.position.inside = c(0.6, 0.35))
+figure_S4 = figure_S4A + figure_S4B + plot_layout(widths = c(1.65, 1))
+ggsave("manuscript/Supplementary_Figures/Figure_S4/Figure_S4.png", figure_S4, width = 15, height = 5)
+
+  # Save as supplementary plot:
+
 
 exome_analysis_normal$plot_list$plot_saturation_curve_ci
 figure_2D = exome_analysis_normal$plot_list$plot_saturation_age +

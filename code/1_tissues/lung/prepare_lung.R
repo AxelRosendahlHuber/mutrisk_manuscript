@@ -89,11 +89,11 @@ list_results = list()
 for (i in unique(metadata$category)) {
 
   mutrisk_pipeline(output_path = output_path,
-                                     cell_muts = cell_muts |> filter(category == i),
-                                     metadata = metadata |> filter(category == i),
-                                     name = i,
-                                     input_signatures = input_signatures,
-                                     sensitivity_correction =  TRUE)
+                   cell_muts = cell_muts |> filter(category == i),
+                   metadata = metadata |> filter(category == i),
+                   name = i, input_signatures = input_signatures,
+                   multiple_refit_methods = TRUE,
+                   sensitivity_correction =  TRUE)
 }
 
 # summarize the results from the tissue-specific analysis (see following code from and adapt:)

@@ -131,7 +131,7 @@ calc_exp_muts = function(expected_rates, mut_positions, metadata, ratios, ncells
     summarise(across(c(mle, cilow, cihigh, age), mean), .groups = "drop")
 }
 
-plot_figures = function(driver_sites, y_label) {
+plot_figures = function(driver_sites, y_label, metadata = metadata) {
   driver_rates = calc_exp_muts(expected_rates, driver_sites, metadata= metadata, ratios = ratios, ncells = ncells)
 
   high_estimate = ggplot(driver_rates,
@@ -153,32 +153,60 @@ plot_figures = function(driver_sites, y_label) {
 
 # DNMT3A driver hotspot
 DNMT3A_R882H_hotspot = CH_bDM[aachange == "R882H" & gene_name == "DNMT3A", .N, c("gene_name", "mut_type", "aachange", "position", "driver")]
-DNMT3A_R882H_hotspot_plots = plot_figures(DNMT3A_R882H_hotspot, "Number of cells with\nDNMT3A R882H mutation")
+DNMT3A_R882H_hotspot_plots = plot_figures(DNMT3A_R882H_hotspot, "Number of cells with\nDNMT3A R882H mutation", metadata = metadata )
+figure_S7_top = mapply(DNMT3A_R882H_hotspot_plots[2:1], c("A", "B"), FUN = prep_plot) |>
+  wrap_plots()
+
+# calculate the time for a clone to be present at a VAF of 0.02:
+
+# assuming 100K HSCs
+extension_age = log(2000) / log(1.148)
+metadata_extension = metadata |>
+  mutate(age = age + extension_age)
+
+driver_rates = calc_exp_muts(expected_rates, DNMT3A_R882H_hotspot, metadata= metadata, ratios = ratios, ncells = ncells)
+driver_rates_extension = calc_exp_muts(expected_rates, DNMT3A_R882H_hotspot, metadata= metadata_extension, ratios = ratios, ncells = ncells)
+
+list(mutation_induction = driver_rates,
+     VAF_limit = driver_rates_extension) |>
+  rbindlist(idcol = "type") |>
+  ggplot(aes(x = age, y = mle*13)) +
+  geom_pointrange(aes(ymin = cilow*13, ymax = cihigh*13, color = type))  +
+  labs(x = "Age (years)", subtitle = "1.3 million HSCs") +
+  theme_cowplot()
+# add in the additional aging shift, make this also part of supplementary figure S7
+
+figure_S7_bottom = mapply(DNMT3A_R882H_hotspot_plots[2:1], c("A", "B"), FUN = prep_plot) |>
+  wrap_plots()
+
+ggsave("manuscript/Supplementary_Figures/Figure_S8/Figure_S8.png", figure_S8, width = 10, height = 5)
+ggsave("manuscript/Supplementary_Figures/Figure_S8/Figure_S8.pdf", figure_S8, width = 10, height = 5)
+
 
 DNMT3A_drivers = CH_bDM[gene_name == "DNMT3A" & driver == TRUE , .N, c("gene_name", "mut_type", "aachange", "position", "driver")]
-DNMT3A_driver_plot = plot_figures(DNMT3A_drivers, "Number of cells with\n DNMT3A driver mutation")
+DNMT3A_driver_plot = plot_figures(DNMT3A_drivers, "Number of cells with\n DNMT3A driver mutation", metadata)
 ggsave("plots/blood/masha_exploration/DNMT3A_driver_plot.png", DNMT3A_driver_plot, width = 5, height = 4.5, bg = "white")
 
 DNMT3A_all_muts = CH_bDM[gene_name == "DNMT3A", .N, c("gene_name", "mut_type", "aachange", "position", "driver")]
-DNMT3A_all_plot = plot_figures(DNMT3A_all_muts, "Number of cells with\n DNMT3A any mutation")
+DNMT3A_all_plot = plot_figures(DNMT3A_all_muts, "Number of cells with\n DNMT3A any mutation", metadata)
 ggsave("plots/blood/masha_exploration/DNMT3A_all_plot.png", DNMT3A_all_plot, width = 5, height = 4.5, bg = "white")
 
 
 # comparison for Masha:
 TET2_drivers = CH_bDM[gene_name == "TET2" & driver == TRUE , .N, c("gene_name", "mut_type", "aachange", "position", "driver")]
-TET2_driver_plot = plot_figures(TET2_drivers, "Number of cells with\nTET2 driver mutation")
+TET2_driver_plot = plot_figures(TET2_drivers, "Number of cells with\nTET2 driver mutation", metadata)
 ggsave("plots/blood/masha_exploration/TET2_driver_plot.png", TET2_driver_plot, width = 5, height = 4.5, bg = "white")
 
 TP53_drivers = CH_bDM[gene_name == "TP53" & driver == TRUE , .N, c("gene_name", "mut_type", "aachange", "position", "driver")]
-TP53_driver_plot = plot_figures(TP53_drivers, "Number of cells with\nTP53 driver mutation")
+TP53_driver_plot = plot_figures(TP53_drivers, "Number of cells with\nTP53 driver mutation", metadata)
 ggsave("plots/blood/masha_exploration/TP53_driver_plot.png", TP53_driver_plot, width = 5, height = 4.5, bg = "white")
 
 TET2_drivers = CH_bDM[gene_name == "TET2", .N, c("gene_name", "mut_type", "aachange", "position", "driver")]
-TET2_all_plot = plot_figures(TET2_drivers, "Number of cells with\nTET2 any mutation")
+TET2_all_plot = plot_figures(TET2_drivers, "Number of cells with\nTET2 any mutation", metadata)
 ggsave("plots/blood/masha_exploration/TET2_all_plot.png", TET2_all_plot, width = 5, height = 4.5, bg = "white")
 
 TP53_drivers = CH_bDM[gene_name == "TP53", .N, c("gene_name", "mut_type", "aachange", "position", "driver")]
-TP53_all_plot = plot_figures(TP53_drivers, "Number of cells with\nTP53 any mutation")
+TP53_all_plot = plot_figures(TP53_drivers, "Number of cells with\nTP53 any mutation", metadata)
 ggsave("plots/blood/masha_exploration/TP53_all_plot.png", TP53_all_plot, width = 5, height = 4.5, bg = "white")
 
 # add additional genes (for supplementary)z
@@ -207,18 +235,16 @@ mutation_list = list(
         prob_cihigh = get_prob_mutated_N(risk = (mle)/ncells ,ncells = ncells*4, N =  1),
         prob_mut_5 = get_prob_mutated_N(risk = mle/ncells ,ncells = ncells, N =  5),
         prob_mut_10 = get_prob_mutated_N(risk = mle/ncells ,ncells = ncells, N = 13))
-
 # also needed would be the list of all the variants in the Watson analysis reported to be mutated
 
-CH_genes = c("DNMT3A", "TET2", "TP53")
-
+# Supplementary Figure: DNMT3A, TET2 and TP53 mutations in CH
 # UKbiobank individual counts
 UKB_age_frequencies = fread("raw_data/UKBiobank/UKB_age_frequencies_DNMT3A.tsv") |>
   select(Age, Individuals)
-gene = "DNMT3A"
 
 # start for loop:
 UKB_plot_list = list()
+CH_genes = c("DNMT3A", "TET2", "TP53")
 for (i in 1:3) {
 
   gene = CH_genes[i]
@@ -249,3 +275,7 @@ saveRDS(F5A, "manuscript/figure_panels/figure_5/figure_5A.rds")
 saveRDS(F5B, "manuscript/figure_panels/figure_5/figure_5B.rds")
 saveRDS(F5C, "manuscript/figure_panels/figure_5/figure_5C.rds")
 saveRDS(F5D, "manuscript/figure_panels/figure_5/figure_5D.rds")
+
+
+# Supplementary figure:
+fread("raw_data/UKBiobank/UKB_age_frequencies_DNMT3A.tsv")
