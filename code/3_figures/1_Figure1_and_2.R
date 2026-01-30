@@ -374,11 +374,11 @@ gene_counts = gene_counts |>
   pivot_longer(-c(gene_name, mut_type), names_to = "consequence", values_to = "count") |>
   filter(count != 0) |>
   setDT()
-gene_counts = sample_n(gene_counts, 1e4)
+gene_counts = sample_n(gene_counts, 1e5)
 
 # analyze the frequency of mutations using the groupby setting to "donor". Used for the main figures
 exome_analysis = analyze_probability(gene_counts = gene_counts, analysis_name = "exome analysis", groupby = "donor")
-exome_analysis_normal = analyze_probability(gene_counts = gene_counts, analysis_name = "exome analysis", groupby = "donor", filter_normal = TRUE)
+exome_analysis_normal = analyze_probability(gene_counts = gene_counts, analysis_name = "exome analysis", groupby = "onor", filter_normal = TRUE)
 save_plots(exome_analysis_normal$plot_list, path = "plots/coverage_saturation/", name = "normal_exome", width = 7, height = 5)
 save_plots(exome_analysis_normal$plot_list, path = "plots/coverage_saturation/", name = "normal_exome_wideplot", width = 10, height = 5)
 

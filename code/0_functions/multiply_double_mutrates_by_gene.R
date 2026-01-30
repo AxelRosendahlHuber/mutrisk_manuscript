@@ -14,7 +14,7 @@ get_double_gene_rate = function(exp_rates, metadata, site_freqs, ratios, ncells)
     mutate(across(any_of(c("mle", "cilow", "cihigh")), ~ . * N * ratio)) |>
     summarize(across(any_of(c("mle", "cilow", "cihigh")), sum)) |>
     summarize(across(any_of(c("mle", "cilow", "cihigh")), mean), .groups = "drop_last") |>
-    mutate(across(any_of(c("mle", "cilow", "cihigh")), ~ (. * (./2)) * ncells)) # calculate the fraction of cells which are expected to be mutated double
+    mutate(across(any_of(c("mle", "cilow", "cihigh")), ~ (. * (./4)) * ncells)) # calculate the fraction of cells which are expected to be mutated double
 }
 
 # Idea to separate the number of cells in the tissue by the number of cells sequenced
@@ -31,6 +31,6 @@ get_double_gene_rate_fraction = function(exp_rates, metadata, site_freqs, ratios
     summarize(across(any_of(c("mle", "cilow", "cihigh")), sum), .groups = "drop_last") |>  # sum all mutation types
     mutate(count = length(unique(sampleID)),  # count number of samples in the sample
            ncells_part = ncells / count) |>            # divide the number of cells by this sample
-    mutate(across(any_of(c("mle", "cilow", "cihigh")), ~ (. * (./2)) * ncells_part)) |>  # multiply the number of cells by these rates
+    mutate(across(any_of(c("mle", "cilow", "cihigh")), ~ (. * (./4)) * ncells_part)) |>  # multiply the number of cells by these rates
     summarize(across(any_of(c("mle", "cilow", "cihigh")), sum), .groups = "drop")
 }

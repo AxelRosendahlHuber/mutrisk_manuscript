@@ -1,5 +1,4 @@
 # Run manuscript analyses:
-renv::restore()
 library(tictoc) # for speed testing
 
 # # 0 (download data sources) automatically:

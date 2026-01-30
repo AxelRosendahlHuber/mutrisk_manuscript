@@ -7,7 +7,6 @@ source("code/0_functions/analysis_variables.R")
 # determine the whole-genome trinucleotide rates
 sites_whole_genome = mutrisk::hg19_trinuc_counts
 
-
 # trinucleotide sites in TP53
 match = setNames(object = c("A", "C", "G", "T"), c("T", "G", "C", "A"))
 cancer_boostdm = fread("processed_data/boostdm/boostdm_genie_cosmic/colon_boostDM_cancer.txt.gz") |>
@@ -82,8 +81,4 @@ figure_S6C = left_join(POLD1_counts, triplets_TP53_driver) |>
   scale_y_continuous(expand = expansion(mult = c(0, 0.1))) +
   labs(x = NULL, y = "Mutations/\nmutable sites")
 saveRDS(figure_S6C, "manuscript/Supplementary_Figures/Figure_S6/Figure_S6C.rds")
-ggsave("manuscript/Supplementary_Figures/Figure_S6/Figure_S6.png", width = 15, height = 7, bg = "white")
-
-
-
 

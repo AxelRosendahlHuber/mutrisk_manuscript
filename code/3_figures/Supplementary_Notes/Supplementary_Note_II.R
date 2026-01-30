@@ -95,7 +95,7 @@ BRAF = get_n_muts("colon", "BRAF") |> plot_n_muts(driver = TRUE)
 PIK3CA = get_n_muts("colon", "PIK3CA") |> plot_n_muts(driver = TRUE)
 
 colon_plot = SMAD4 / BRAF / PIK3CA
-ggsave("manuscript/Supplementary_notes/Supplementary_Note_III/SN_III_Fig1_colon.png",
+ggsave("manuscript/Supplementary_notes/Supplementary_Note_III/SN_II_Fig1_colon.png",
        colon_plot, width = 10, height = 14)
 
 EGFR = get_n_muts("lung", "EGFR") |> plot_n_muts(driver = TRUE) |> prep_plot("A")
@@ -103,7 +103,7 @@ KRAS = get_n_muts("lung", "KRAS") |> plot_n_muts(driver = TRUE) |> prep_plot("B"
 TP53 = get_n_muts("lung", "BRAF") |> plot_n_muts(driver = TRUE) |> prep_plot("C")
 lung_plot = EGFR / KRAS / TP53
 
-ggsave("manuscript/Supplementary_notes/Supplementary_Note_III/SN_III_Fig2_lung.png",
+ggsave("manuscript/Supplementary_notes/Supplementary_Note_III/SN_II_Fig2_lung.png",
        lung_plot, width = 9, height = 14)
 
 
@@ -111,6 +111,6 @@ PPM1D = get_n_muts("blood", "PPM1D") |> plot_n_muts(driver = TRUE)
 ASXL1 = get_n_muts("blood", "ASXL1") |> plot_n_muts(driver = TRUE)
 SRSF2 = get_n_muts("blood", "SRSF2") |> plot_n_muts(driver = TRUE)
 blood_plot = PPM1D | ASXL1 | SRSF2
-ggsave("manuscript/Supplementary_notes/Supplementary_Note_III/SN_III_Fig3_blood.png",
+ggsave("manuscript/Supplementary_notes/Supplementary_Note_III/SN_II_Fig3_blood.png",
        blood_plot, width = 12, height = 5)
 

@@ -145,9 +145,10 @@ supplementary_note_II_figure = barplot_ie_vs_sum / (percent_double_mut | percent
   plot_annotation(tag_levels  = "A") &
   theme(plot.margin = margin(mg, mg, mg, mg, unit = "mm"))
 supplementary_note_II_figure
-ggsave("manuscript/Supplementary_notes/Supplementary_Note_II/Supplementary_Note_II_Fig1.png", supplementary_note_II_figure, width = 12, height = 9)
+#ggsave("manuscript/Supplementary_notes/Supplementary_Note_III/Supplementary_Note_II_Fig1.png", supplementary_note_II_figure, width = 12, height = 9)
 
-ggsave("manuscript/Supplementary_notes/Supplementary_Note_II/Supplementary_Note_II_Fig1.png", barplot_ie_vs_sum, width = 12, height = 5, bg = "white")
+# in the end only using figure "A" was sufficient
+ggsave("manuscript/Supplementary_notes/Supplementary_Note_III/Supplementary_Note_II_Fig1.png", barplot_ie_vs_sum, width = 12, height = 5, bg = "white")
 
 
 # average across clones
@@ -221,5 +222,5 @@ rbindlist(list(`diversity clones` = mrate_APC_double_drivers_fraction |> filter(
         legend.position = "inside", legend.position.inside = c(0.02, 0.9)) +
   labs(y = "predicted number of cells with double mutation", x = NULL, color = "computing method",
        subtitle = "Comparison calculation methods # cells with two APC driver mutations")
-ggsave("manuscript/Supplementary_notes/Supplementary_Note_II/Supplementary_NoteII_Fig2.png", width = 8, height = 6, bg = 'white')
-ggsave("manuscript/Supplementary_Figures/Figure_S5/Supplementary_NoteII_Fig2.png", width = 8, height = 6, bg = 'white')
+ggsave("manuscript/Supplementary_notes/Supplementary_Note_III/Supplementary_NoteIII_Fig2.png", width = 8, height = 6, bg = 'white')
+ggsave("manuscript/Supplementary_notes/Supplementary_Note_III/Supplementary_NoteIII_Fig2.png", width = 8, height = 6, bg = 'white')

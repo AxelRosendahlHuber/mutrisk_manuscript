@@ -101,10 +101,10 @@ ratios = fread(paste0("processed_data/", tissue, "/", tissue, "_mut_ratios.tsv.g
   filter(gene_name %in% c("APC", "KRAS", "TP53", "BRAF"))
 
 # load the mutation data:
-cancer_bDM = fread("processed_data/boostdm/boostdm_genie_cosmic/colon_boostDM_cancer.txt.gz")
+colon_bDM = fread("processed_data/boostdm/boostdm_genie_cosmic/colon_boostDM_cancer.txt.gz")
 
 # Calculate the driver mutation rates
-KRAS_single_snv_muts = cancer_bDM[gene_name == "KRAS" & driver == TRUE, .N,
+KRAS_single_snv_muts = colon_bDM[gene_name == "KRAS" & driver == TRUE, .N,
                                   c("gene_name", "mut_type", "aachange", "position")]
 
 KRAS_single_snv = expected_rates_normal |>
@@ -116,7 +116,7 @@ KRAS_single_snv = expected_rates_normal |>
   summarise(across(c(mle, cilow, cihigh, age), mean), groups = "drop")
 
 # compare TP53 vs BRAF mutation
-TP53_R = cancer_bDM[gene_name == "TP53" & aachange == "R175H", .N, c("gene_name", "mut_type", "aachange", "position")]
+TP53_R = colon_bDM[gene_name == "TP53" & aachange == "R175H", .N, c("gene_name", "mut_type", "aachange", "position")]
 expected_rates_normal |>
 inner_join(TP53_R, by = "mut_type", relationship = "many-to-many") |>
   left_join(metadata) |>
@@ -126,7 +126,7 @@ inner_join(TP53_R, by = "mut_type", relationship = "many-to-many") |>
   summarise(mean = mean(mle), min = min(mle), max = max(mle), .groups = "drop_last")  |>
   summarise( min = min(mean), max = max(mean), mean = mean(mean))
 
-BRAF_V600E = cancer_bDM[gene_name == "BRAF" & aachange == "V600E", .N, c("gene_name", "mut_type", "aachange", "position")]
+BRAF_V600E = colon_bDM[gene_name == "BRAF" & aachange == "V600E", .N, c("gene_name", "mut_type", "aachange", "position")]
 expected_rates_normal |>
   inner_join(BRAF_V600E, by = "mut_type", relationship = "many-to-many") |>
   left_join(metadata) |>
@@ -137,7 +137,7 @@ expected_rates_normal |>
   summarise( min = min(mean), max = max(mean), mean = mean(mean))
 
 # compare TP53 vs BRAF mutation
-TP53_R = cancer_bDM[gene_name == "TP53" & driver == "TRUE", .N, c("gene_name", "mut_type", "aachange", "position")]
+TP53_R = colon_bDM[gene_name == "TP53" & driver == "TRUE", .N, c("gene_name", "mut_type", "aachange", "position")]
 TP53_R$N |> sum()
 expected_rates_normal |>
   inner_join(TP53_R, by = "mut_type", relationship = "many-to-many") |>
@@ -151,7 +151,7 @@ expected_rates_normal |>
   summarise( min = min(mean), max = max(mean), mean = mean(mean))
 
 # Expected number of cells with double mutations:
-apc_counts_boostdm = cancer_bDM[gene_name == "APC" & driver == TRUE, .N, by = c("gene_name", "mut_type",  "driver")]
+apc_counts_boostdm = colon_bDM[gene_name == "APC" & driver == TRUE, .N, by = c("gene_name", "mut_type",  "driver")]
 
 apc_single_snv = expected_rates_normal |>
   left_join(ratios |> filter(gene_name == "APC")) |>
@@ -172,7 +172,7 @@ apc_muts_estimated$mle |> min()
 apc_muts_estimated$mle |> mean()
 
 # Expected number of cells with double mutations:
-apc_counts_boostdm = cancer_bDM[gene_name == "TP53" & driver == TRUE, .N, by = c("gene_name", "mut_type",  "driver")]
+apc_counts_boostdm = colon_bDM[gene_name == "TP53" & driver == TRUE, .N, by = c("gene_name", "mut_type",  "driver")]
 
 apc_single_snv = expected_rates_normal |>
   left_join(ratios |> filter(gene_name == "TP53")) |>
@@ -204,7 +204,7 @@ apc_muts_estimated$mle |> mean()
 
 
 double_apc = apc_single_snv |>
-  mutate(across(c(mle, cilow, cihigh), ~ ((.^2) / 2)))
+  mutate(across(c(mle, cilow, cihigh), ~ ((.^2) /4)))
 
 double_apc_ncells = double_apc |>
   mutate(ncells_mut = mle * ncells) |>
@@ -228,8 +228,6 @@ double_apc_ncells$ncells_mut |> mean()
 double_apc_ncells$ncells_mut |> max()
 
 
-
-
 apc_kras = apc_single_snv |>
   mutate(mle = mle * KRAS_single_snv$mle,
          cilow = cilow * KRAS_single_snv$cilow,
@@ -239,6 +237,15 @@ double_apc_kras = double_apc |>
   mutate(mle = mle * KRAS_single_snv$mle,
          cilow = cilow * KRAS_single_snv$cilow,
          cihigh = cihigh * KRAS_single_snv$cihigh)
+
+# manuscript: number of 60-year olds with 2x APC and KRAS mutation
+risk_double_apc_kras= double_apc_kras |>
+  filter(age == 60) |>
+  mutate(mle = mle * ncells) |>
+  summarize(mle = mean(mle)) |>
+  as.numeric()
+risk_double_apc_kras * 1e6
+
 
 # Plot the driver mutation rates
 plot_driver_muts = function(driver_rates, y_axis = "INSERT TITLE") {
@@ -414,10 +421,8 @@ saveRDS(AD_plot, "manuscript/figure_panels/figure_4/figures_adenoma.rds")
 # calculate for the individual donors (colibactin) the number of expected mutations:
 # read in the signature-sepecific activity across donors
 colon_sig_rates = fread("processed_data/colon/colon_sig_donor_rates.tsv.gz")
-apc_counts_boostdm
 
-apc_counts_boostdm = cancer_bDM[gene_name == "TP53" & driver == TRUE, .N, by = c("gene_name", "mut_type",  "driver")]
-apc_counts_boostdm = cancer_bDM[gene_name == "APC" & driver == TRUE, .N, by = c("gene_name", "mut_type",  "driver")]
+apc_counts_boostdm = colon_bDM[gene_name == "APC" & driver == TRUE, .N, by = c("gene_name", "mut_type",  "driver")]
 
 apc_sig_rates = left_join(apc_counts_boostdm, colon_sig_rates) |>
   mutate(mle = mle * N * ncells)
@@ -431,7 +436,6 @@ apc_sig_rates |>
   facet_wrap(signature ~. ) +
   theme_cowplot() +
   ggsci::scale_color_igv()
-
 
 APC_muts_w_o_SBS88 = apc_sig_rates |>
   filter(signature != "SBS88") |>

@@ -57,7 +57,6 @@ ggsave("manuscript/Supplementary_Figures/Figure_S2/Figure_S2_all.png",
        sig_contribution_plot, width = 15, height = 10)
 
 
-
 order(parse_number(means_sig_contrib[[2]]$signature))
 
 mean_signatures = means_sig_contrib |>
