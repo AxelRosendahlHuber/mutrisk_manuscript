@@ -175,5 +175,5 @@ plot_2e5_pats  = df_200k_sims |>
   labs(x = 'age (Years)', y = 'fraction of cells with mutation', subtitle = "Simulation of DNMT3A mtuations",
        title = "simulation of DNMT3A R882H\nin 200,000 individuals")
 plot_2e5_pats
-ggsave("manuscript/Supplementary_notes/Supplementary_Note_III/SNIII_Figure_4.png", plot_2e5_pats, width = 7, height = 4, bg = "white")
+ggsave("manuscript/Supplementary_notes/Supplementary_Note_4/SN4_Figure_4.png", plot_2e5_pats, width = 7, height = 4, bg = "white")
 # todo: model the mutation rates with different initial mutation rates

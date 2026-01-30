@@ -327,7 +327,6 @@ analyze_probability = function(gene_counts, analysis_name, groupby = "donor",
   probability_rates = bind_dfs(prob_rates_tissue)
   plot_results = bind_dfs(result_plot_list)
 
-
   plot_list = list()
   plot_list[["plot_saturation"]] = plot_intersect_boxplot(intersects, analysis_name, groupby)
   plot_list[["plot_saturation_ci"]] = plot_intersect_boxplot_ci(intersects_ci, analysis_name, groupby)
@@ -355,7 +354,10 @@ analyze_probability = function(gene_counts, analysis_name, groupby = "donor",
   plot_list[["plot_probabilites_normal_colon"]] = plot_prob_curve(probability_rates |> filter(tissue == "colon" & category == "normal"), analysis_name, groupby, nrow = 1) +
     labs(subtitle = NULL)
 
-  # plot the saturation vs age:
+
+  table(intersects_ci$tissue)/3
+
+
   plot_list[["plot_saturation_age"]] = plot_saturation_age(intersects_ci |> filter(name == "mid_estimate"), analysis_name, groupby)
   plot_list[["plot_saturation_age_ci"]] = plot_saturation_age_ci(intersects_ci, analysis_name, groupby)
 
@@ -390,20 +392,23 @@ ggsave("plots/coverage_saturation/presentation_line2.png", exome_analysis_normal
 
 
 # perform similar analysis, now setting the groupby to "sampleID". Used for supplementary figures
-sampleID_exome_analysis = analyze_probability(gene_counts = gene_counts, analysis_name = "exome analysis", groupby = "sampleID")
+#sampleID_exome_analysis = analyze_probability(gene_counts = gene_counts, analysis_name = "exome analysis", groupby = "sampleID")
 sampleID_exome_analysis_normal = analyze_probability(gene_counts = gene_counts, analysis_name = "exome analysis", groupby = "sampleID", filter_normal = TRUE)
 save_plots(sampleID_exome_analysis_normal$plot_list, path = "plots/coverage_saturation/", name = "sampleID_normal_exome", width = 7, height = 5)
 save_plots(sampleID_exome_analysis_normal$plot_list, path = "plots/coverage_saturation/", name = "sampleID_normal_exome_wideplot", width = 10, height = 5)
 
-figure_S4A = sampleID_exome_analysis_normal$plot_list$plot_saturation_curve_ci
-figure_S4B = sampleID_exome_analysis_normal$plot_list$plot_saturation_age + labs(x = "Age (years)") +
-  theme(legend.position = "inside", legend.position.inside = c(0.6, 0.35))
-figure_S4 = figure_S4A + figure_S4B + plot_layout(widths = c(1.65, 1))
-ggsave("manuscript/Supplementary_Figures/Figure_S4/Figure_S4.png", figure_S4, width = 15, height = 5)
+figure_S4A = sampleID_exome_analysis_normal$plot_list$plot_saturation_curve_ci |>
+  prep_plot("A", all_margin = 8)
+figure_S4B = sampleID_exome_analysis_normal$plot_list$plot_saturation_age +
+  facet_wrap(. ~ tissue, scales = "free_y") +
+  cowplot::panel_border() +
+  labs(x = "Age (years)") +
+  theme(legend.position = "none")
+figure_S4B = prep_plot(figure_S4B, "B", all_margin = 8)
+figure_S4 = figure_S4A / figure_S4B + plot_layout(widths = c(1.65, 1))
+ggsave("manuscript/Supplementary_Figures/Figure_S4/Figure_S4.png", figure_S4, width = 12, height = 8)
 
-  # Save as supplementary plot:
-
-
+# Save as supplementary plot:
 exome_analysis_normal$plot_list$plot_saturation_curve_ci
 figure_2D = exome_analysis_normal$plot_list$plot_saturation_age +
   theme(legend.position = "inside", legend.position.inside = c(0.6, 0.5)) +
@@ -702,7 +707,7 @@ plot_driver_incidence = function(mutation_list, drivers, name, plot_rows = 2, sp
       scale_x_continuous(labels = label_percent(), expand = expansion(mult = c(0, 0)), limits = c(NA,1)) +
       scale_y_continuous(expand = expansion(mult = c(0.0, 0)), limits = c(NA,1)) +
       labs(x = "Exome SNVs sorted by mutation\nprobability",
-           y = 'Cumulative share of mutations', color = NULL) +
+           y = 'Cumulative share of probability', color = NULL) +
       cowplot::theme_cowplot() +
       theme(legend.position = "inside", legend.position.inside = c(0.05, 0.83))
     pl[["lorenz_plot"]]
@@ -740,6 +745,8 @@ ggsave("plots/coverage_saturation/fig1_lorenz_plot.png", plot_list_normal$lorenz
 
 # prepare figures for saving and formatting as a single figure
 # save Figure 1 panels to be used in main figure script
+plot_list_normal = plot_driver_incidence(mutation_list = exome_normal_list,
+                                         drivers = drivers_normal, name = "normal_exome", plot_rows = 1)
 saveRDS(plot_list_normal_individuals$barplot_percent_probability, "manuscript/figure_panels/figure_1/figure_1C.rds")
 saveRDS(plot_list_normal$lorenz_plot, "manuscript/figure_panels/figure_1/figure_1D.rds")
 
@@ -760,3 +767,4 @@ TP53_plots = plot_driver_incidence(mutation_list = TP53_analysis$result_plot_df,
                                    drivers = drivers[grepl("TP53", driver_name)],
                                    name = "TP53")
 save_plots(TP53_plots, "plots/coverage_saturation/", "TP53_drivers")
+

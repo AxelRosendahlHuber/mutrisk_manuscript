@@ -83,9 +83,13 @@ figure_5D = readRDS("manuscript/figure_panels/figure_5/figure_5D.rds")
 figure_5A / figure_5B / figure_5C / figure_5D
 ggsave("manuscript/Figure_5/Figure_5.png", width = 13, height = 15)
 
-#TODO check if it is neccesary to check extended figures;
 
-
+# Figure S6
+figure_S6A = readRDS("manuscript/Supplementary_Figures/Figure_S6/figure_S6A.rds") |> prep_plot("A")
+figure_S6B = readRDS("manuscript/Supplementary_Figures/Figure_S6/Figure_S6B.rds") |> prep_plot("B")
+figure_S6C = readRDS("manuscript/Supplementary_Figures/Figure_S6/Figure_S6C.rds") |> prep_plot("C")
+figure_S6 = (figure_S6A | figure_S6B) / figure_S6C
+ggsave("manuscript/Supplementary_Figures/Figure_S6/Figure_S6.png", figure_S6, width = 14, height = 12)
 
 
 

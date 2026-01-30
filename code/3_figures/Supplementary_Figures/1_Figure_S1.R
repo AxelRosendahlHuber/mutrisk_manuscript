@@ -311,6 +311,25 @@ Figure_S1 = FS1A / FS1B
 ggsave("manuscript/Supplementary_Figures/Figure_S1/Figure_S1.png", Figure_S1,  width = 15, height = 10, dpi = 600)
 ggsave("manuscript/Supplementary_Figures/Figure_S1/Figure_S1.pdf", Figure_S1,  width = 15, height = 10)
 
+
+# figure S6B - comparison of colon normal and POLD1 mutated cells
+figure_S6B = colon_data |>
+  filter(category %in% c("normal", "POLD1")) |>
+  ggplot(aes(x = age, y = corrected_wgs, fill = category, group = category, color = category)) +
+  geom_abline(data = models_nonexposed |> filter(grepl("colon", tissue)),
+              aes(slope = slope, intercept = intercept, color = colon_colors[1])) +
+  geom_point(shape = 21, color = "white", stroke = 0.3, size = 2)  +
+  annotate("rect", xmin = 0, xmax = 85, ymin = 0, ymax = 5000, alpha = 0, color = "grey30", linetype = "dashed") +
+  theme_cowplot() +
+  scale_color_manual(values = colon_colors[c(1,3)]) +
+  scale_fill_manual(values = colon_colors[c(1,3)]) +
+  scale_y_continuous(labels = scales::comma) +
+  theme(legend.position = "inside", legend.position.inside = c(0.1, 0.7), plot.title = element_text(hjust = 0.5)) +
+  labs(y = NULL, fill  = NULL, title = "Colon", x = "Age (years)") +
+  guides(color = "none")
+figure_S6B
+saveRDS(figure_S6B, "manuscript/Supplementary_Figures/Figure_S6/Figure_S6B.rds")
+
 # TODO - check the plot below - see if it is possible to make it with the lmm-based approaches for correctness.
 # make a simple plot for the biorender figure:
 aging_rate_plot_simple = nonexposed_data |>
@@ -351,6 +370,7 @@ colnames(mm)[3:4]  = c("Lung\nnon-smoker", "Lung\nsmoker")
 profiles_tissues = plot_96_profile2(mm, relative = F, free_y = TRUE, horizontal_labels = TRUE) +
   theme(axis.text = element_blank(), axis.text.x = element_blank(), axis.ticks.y = element_blank())
 ggsave("plots/trinuc_tissue.png", profiles_tissues, width = 6.5, height = 5)
+ggsave("plots/trinuc_tissue.pdf", profiles_tissues, width = 6.5, height = 5)
 
 # check the signature contributions of smoking samples:
 signatures = read.delim("raw_data/resources/COSMIC_v3.4_SBS_GRCh37.txt") |> column_to_rownames("Type") |> as.matrix()
@@ -373,6 +393,9 @@ colnames(contribution) = paste(contri$sample, contri$contribution )
 profiles_signatures = plot_96_profile2(contribution, relative = F, free_y = TRUE, horizontal_labels = TRUE) +
   theme(axis.text = element_blank(), axis.text.x = element_blank(), axis.ticks.y = element_blank())
 ggsave("plots/trinuc_contribution.png", profiles_signatures, width = 5.4, height = 3.6)
+
+ggsave("plots/trinuc_contirbution.pdf", profiles_signatures_clean, width = 6.5, height = 5)
+
 
 # plot the contribution in the 6 different mutation types
 colnames(contribution) = c("cigarette\nsmoke", "aging", "other")

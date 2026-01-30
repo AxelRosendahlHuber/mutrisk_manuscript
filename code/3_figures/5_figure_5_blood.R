@@ -39,6 +39,7 @@ mutation_rates = expected_rates |>
 # Mean mutation rate for each trinucleotide
 # Check if the blood rates actually make sense - this seems too low - this must be because of the cord blood donors
 mean_rates = mutation_rates |>
+  filter(age > 0) |>
   group_by(tissue_category, mut_type) |>
   summarize(mle = mean(mle),
             mean_age = mean(age)) |>
@@ -176,7 +177,7 @@ list(mutation_induction = driver_rates,
   theme_cowplot()
 # add in the additional aging shift, make this also part of supplementary figure S7
 
-figure_S7_bottom = mapply(DNMT3A_R882H_hotspot_plots[2:1], c("A", "B"), FUN = prep_plot) |>
+figure_S8 = mapply(DNMT3A_R882H_hotspot_plots[2:1], c("A", "B"), FUN = prep_plot) |>
   wrap_plots()
 
 ggsave("manuscript/Supplementary_Figures/Figure_S8/Figure_S8.png", figure_S8, width = 10, height = 5)
@@ -209,13 +210,21 @@ TP53_drivers = CH_bDM[gene_name == "TP53", .N, c("gene_name", "mut_type", "aacha
 TP53_all_plot = plot_figures(TP53_drivers, "Number of cells with\nTP53 any mutation", metadata)
 ggsave("plots/blood/masha_exploration/TP53_all_plot.png", TP53_all_plot, width = 5, height = 4.5, bg = "white")
 
-# add additional genes (for supplementary)z
+# add additional genes (for supplementary)
+
+# expected mutation rate for the average of sm
+driver_rates = calc_exp_muts(expected_rates, DNMT3A_drivers, metadata= metadata, ratios = ratios, ncells = ncells) |>
+    filter(age > 0 ) |>
+    summarize(across(c(mle, cilow, cihigh, age), mean))
+
 
 # make the general figure:
 plots = c(DNMT3A_driver_plot, TET2_driver_plot, TP53_driver_plot)
+plots[[2]] = plots[[2]] + labs(title = "DNMT3A") + theme(plot.title = element_text(hjust = 0.5))
+plots[[4]] = plots[[4]] + labs(title = "TET2") + theme(plot.title = element_text(hjust = 0.5))
+plots[[6]] = plots[[6]] + labs(title = "TP53") + theme(plot.title = element_text(hjust = 0.5))
 F5B = wrap_plots(plots[c(2,4,6)], byrow = FALSE) |> prep_plot(label = "B")
 F5C = wrap_plots(plots[c(1,3,5)], byrow = FALSE) |> prep_plot(label = "C")
-
 
 # get all the driver mutations for the watson figure:
 watson_variants = c("R882C", "R729W", "R326C", "R320*", "R882H", "R736H",
@@ -275,7 +284,3 @@ saveRDS(F5A, "manuscript/figure_panels/figure_5/figure_5A.rds")
 saveRDS(F5B, "manuscript/figure_panels/figure_5/figure_5B.rds")
 saveRDS(F5C, "manuscript/figure_panels/figure_5/figure_5C.rds")
 saveRDS(F5D, "manuscript/figure_panels/figure_5/figure_5D.rds")
-
-
-# Supplementary figure:
-fread("raw_data/UKBiobank/UKB_age_frequencies_DNMT3A.tsv")

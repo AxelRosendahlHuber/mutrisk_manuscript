@@ -55,8 +55,9 @@ cumulative_incidence = ggplot(ukbiobank_crc, aes(x = age)) +
 
 # combine plots in an overview plot:
 n_cohort + CRC_incidence + yearly_incidence_rates + cumulative_incidence
+# check if it is possible to save this figure, also for the manuscript
 
-# groupp the UKBiobank cohort in groups of 10 years
+# group the UKBiobank cohort in groups of 10 years
 ukbiobank_crc = ukbiobank_crc |>
   mutate(age_group = cut(age, seq(0, 80, 10), labels = seq(5, 75, 10))) |>
   group_by(age_group) |>
@@ -97,7 +98,7 @@ ncells = tissue_ncells_ci$mid_estimate[1]
 expected_rates = fread(paste0("processed_data/", tissue, "/", tissue, "_expected_rates.tsv.gz"))
 expected_rates_normal = expected_rates |>   filter(category == "normal")
 ratios = fread(paste0("processed_data/", tissue, "/", tissue, "_mut_ratios.tsv.gz")) |>
-  filter(gene_name %in% c("APC", "KRAS", "TP53"))
+  filter(gene_name %in% c("APC", "KRAS", "TP53", "BRAF"))
 
 # load the mutation data:
 cancer_bDM = fread("processed_data/boostdm/boostdm_genie_cosmic/colon_boostDM_cancer.txt.gz")
@@ -114,6 +115,41 @@ KRAS_single_snv = expected_rates_normal |>
   group_by(donor, category) |>
   summarise(across(c(mle, cilow, cihigh, age), mean), groups = "drop")
 
+# compare TP53 vs BRAF mutation
+TP53_R = cancer_bDM[gene_name == "TP53" & aachange == "R175H", .N, c("gene_name", "mut_type", "aachange", "position")]
+expected_rates_normal |>
+inner_join(TP53_R, by = "mut_type", relationship = "many-to-many") |>
+  left_join(metadata) |>
+  left_join(ratios) |>
+  mutate(across(c(mle, cilow, cihigh), ~ . * ratio * ncells)) |>
+  group_by( category, donor) |>
+  summarise(mean = mean(mle), min = min(mle), max = max(mle), .groups = "drop_last")  |>
+  summarise( min = min(mean), max = max(mean), mean = mean(mean))
+
+BRAF_V600E = cancer_bDM[gene_name == "BRAF" & aachange == "V600E", .N, c("gene_name", "mut_type", "aachange", "position")]
+expected_rates_normal |>
+  inner_join(BRAF_V600E, by = "mut_type", relationship = "many-to-many") |>
+  left_join(metadata) |>
+  left_join(ratios) |>
+  mutate(across(c(mle, cilow, cihigh), ~ . * ratio * ncells)) |>
+  group_by(category, donor) |>
+  summarise(mean = mean(mle), min = min(mle), max = max(mle), .groups = "drop_last")  |>
+  summarise( min = min(mean), max = max(mean), mean = mean(mean))
+
+# compare TP53 vs BRAF mutation
+TP53_R = cancer_bDM[gene_name == "TP53" & driver == "TRUE", .N, c("gene_name", "mut_type", "aachange", "position")]
+TP53_R$N |> sum()
+expected_rates_normal |>
+  inner_join(TP53_R, by = "mut_type", relationship = "many-to-many") |>
+  left_join(metadata) |>
+  filter(age > 35) |>
+  left_join(ratios) |>
+  mutate(across(c(mle, cilow, cihigh), ~ . * N *  ratio * ncells)) |>
+  group_by( category, donor, sampleID) |>
+  summarise(mle = sum(mle), .groups = "drop_last")  |>
+  summarise(mean = mean(mle), min = min(mle), max = max(mle), .groups = "drop_last")  |>
+  summarise( min = min(mean), max = max(mean), mean = mean(mean))
+
 # Expected number of cells with double mutations:
 apc_counts_boostdm = cancer_bDM[gene_name == "APC" & driver == TRUE, .N, by = c("gene_name", "mut_type",  "driver")]
 
@@ -126,8 +162,73 @@ apc_single_snv = expected_rates_normal |>
   summarize(across(c(mle, cilow, cihigh), mean), .groups = "drop_last") |>
   summarize(across(c(mle, cilow, cihigh), sum), .groups = "drop")
 
+apc_muts_estimated = apc_single_snv |>
+  mutate(mle = mle * ncells) |>
+  filter(age > 35) |>
+  arrange(mle) |>
+  as.data.table()
+apc_muts_estimated$mle |> max()
+apc_muts_estimated$mle |> min()
+apc_muts_estimated$mle |> mean()
+
+# Expected number of cells with double mutations:
+apc_counts_boostdm = cancer_bDM[gene_name == "TP53" & driver == TRUE, .N, by = c("gene_name", "mut_type",  "driver")]
+
+apc_single_snv = expected_rates_normal |>
+  left_join(ratios |> filter(gene_name == "TP53")) |>
+  left_join(metadata) |>
+  inner_join(apc_counts_boostdm |> filter(driver), by = "mut_type", relationship = "many-to-many") |>
+  mutate(across(c(mle, cilow, cihigh), ~ . * N * ratio)) |>
+  group_by(category, donor, age,  mut_type) |>
+  summarize(across(c(mle, cilow, cihigh), mean), .groups = "drop_last") |>
+  summarize(across(c(mle, cilow, cihigh), sum), .groups = "drop")
+
+apc_muts_estimated = apc_single_snv |>
+  mutate(mle = mle * ncells) |>
+  filter(age > 35) |>
+  arrange(mle) |>
+  as.data.table()
+apc_muts_estimated$mle |> max()
+apc_muts_estimated$mle |> min()
+apc_muts_estimated$mle |> mean()
+
+
+apc_muts_estimated = apc_single_snv |>
+  mutate(mle = mle * ncells) |>
+  filter(age == 60) |>
+  arrange(mle) |>
+  as.data.table()
+apc_muts_estimated$mle |> max()
+apc_muts_estimated$mle |> min()
+apc_muts_estimated$mle |> mean()
+
+
 double_apc = apc_single_snv |>
   mutate(across(c(mle, cilow, cihigh), ~ ((.^2) / 2)))
+
+double_apc_ncells = double_apc |>
+  mutate(ncells_mut = mle * ncells) |>
+  filter(age > 35) |>
+  arrange(age) |>
+  as.data.table()
+
+double_apc_ncells$ncells_mut |> min()
+double_apc_ncells$ncells_mut |> mean()
+double_apc_ncells$ncells_mut |> max()
+
+
+double_apc_ncells = double_apc |>
+  mutate(ncells_mut = mle * ncells) |>
+  filter(age == 60) |>
+  arrange(age) |>
+  as.data.table()
+
+double_apc_ncells$ncells_mut |> min()
+double_apc_ncells$ncells_mut |> mean()
+double_apc_ncells$ncells_mut |> max()
+
+
+
 
 apc_kras = apc_single_snv |>
   mutate(mle = mle * KRAS_single_snv$mle,
@@ -138,7 +239,6 @@ double_apc_kras = double_apc |>
   mutate(mle = mle * KRAS_single_snv$mle,
          cilow = cilow * KRAS_single_snv$cilow,
          cihigh = cihigh * KRAS_single_snv$cihigh)
-
 
 # Plot the driver mutation rates
 plot_driver_muts = function(driver_rates, y_axis = "INSERT TITLE") {
@@ -183,7 +283,6 @@ TP53_single_driver = expected_rates |>
   summarize(across(c(mle, cilow, cihigh), mean), .groups = "drop_last") |>
   summarize(across(c(mle, cilow, cihigh), sum))
 
-
 # make this plot for all tissues
 TP53_single_driver_plot = TP53_single_driver |>
 #  filter(category %in% c("normal", "POLD1")) |>
@@ -206,10 +305,11 @@ ukbiobank_crc_plot = ukbiobank_crc |>
 
 # Fraction of CRC mutated for APC or KRAS SNV combinations
 mutated_fractions = fread("processed_data/GENIE_17/CRC_mutation_fractions.txt")
+writexl::write_xlsx(mutated_fractions, "manuscript/Supplementary_Table_6.xlsx")
 
 # make combinations of the different ages and CRC-mutation combinations
 risk = expand.grid(percentages = mutated_fractions$percentages, CRC_cumulative_risk = ukbiobank_crc$CRC_cumulative_risk)
-names = expand.grid(mutation_combination = mutated_fractions$mutation_combination, age = ukbiobank_crc$age)
+names = expand.grid(mutation_combination = mutated_fractions$mutated_combination, age = ukbiobank_crc$age)
 mutated_fraction_CRC = cbind(names, risk) |> as_tibble() |>
  mutate(CRC_mut_fraction = percentages * CRC_cumulative_risk)
 
@@ -220,7 +320,6 @@ label_65 = mutated_fraction_CRC |>
   group_by(mutation_combination) |>
   filter(age == 65) |>
   mutate(label = paste0(format(signif(CRC_mut_fraction*100, digits = 2)), "%"))
-
 
 ggplot(mutated_fraction_CRC, aes(x = age, y = CRC_mut_fraction)) +
   geom_point() +
@@ -284,8 +383,9 @@ age_max_column = rep(c(50, 60, 70, 80, 90), 2)
 # Mean Number of Adenomas per Ten Intestines Examined, by Age, Sex, and Adenoma Size
 # Multiply by the fraction of adenoma's mutated for APC
 
-# 135 CNADs sequenced, of which
+# 135 CNADs sequenced, of which 73 have APC mutation
 73 / 135  # 54% of adenomas - check where this number is coming from - must be from the paper but
+
 ad_incidence = ad_incidence |>
   filter(!Sex %in% c("Males Total", "Females Total")) |>
   mutate(min_age = age_min_column,
@@ -309,4 +409,82 @@ AD_plot = ggplot(ad_incidence_mean, aes(x = age, y = fraction_adenoma_apc)) +
   theme(axis.title = element_text(size = 12))
 AD_plot
 saveRDS(AD_plot, "manuscript/figure_panels/figure_4/figures_adenoma.rds")
+
+# Supplementary rates: Determine signature-specific effects:
+# calculate for the individual donors (colibactin) the number of expected mutations:
+# read in the signature-sepecific activity across donors
+colon_sig_rates = fread("processed_data/colon/colon_sig_donor_rates.tsv.gz")
+apc_counts_boostdm
+
+apc_counts_boostdm = cancer_bDM[gene_name == "TP53" & driver == TRUE, .N, by = c("gene_name", "mut_type",  "driver")]
+apc_counts_boostdm = cancer_bDM[gene_name == "APC" & driver == TRUE, .N, by = c("gene_name", "mut_type",  "driver")]
+
+apc_sig_rates = left_join(apc_counts_boostdm, colon_sig_rates) |>
+  mutate(mle = mle * N * ncells)
+apc_sig_rates |>
+  group_by(signature, donor) |>
+  summarize(muts = sum(mle)) |>
+  left_join(metadata |> select(donor, age, category) |> distinct()) |>
+  filter(category == "normal") |>
+  ggplot(aes(x = age, y = muts, color = signature)) +
+  geom_point() +
+  facet_wrap(signature ~. ) +
+  theme_cowplot() +
+  ggsci::scale_color_igv()
+
+
+APC_muts_w_o_SBS88 = apc_sig_rates |>
+  filter(signature != "SBS88") |>
+  group_by( donor) |>
+  summarize(`no SBS88` = sum(mle)) |>
+  left_join(metadata |> select(donor, age, category) |> distinct()) |>
+  filter(category == "normal")
+
+
+APC_muts_w_o_SBS89 = apc_sig_rates |>
+  filter(signature != "SBS89") |>
+  group_by( donor) |>
+  summarize(`no SBS89` = sum(mle)) |>
+  left_join(metadata |> select(donor, age, category) |> distinct()) |>
+  filter(category == "normal")
+
+APC_muts = apc_sig_rates |>
+  group_by( donor) |>
+  summarize(`all signatures` = sum(mle)) |>
+  left_join(metadata |> select(donor, age, category) |> distinct()) |>
+  filter(category == "normal")
+
+df_APC_noSBS88 = left_join(APC_muts_w_o_SBS88, APC_muts) |>
+  pivot_longer(cols = c(`no SBS88`, `all signatures`), values_to = "Cells with APC mutation")
+
+figure_no_SBS88 = df_APC_noSBS88 |>
+  ggplot(aes(x = age, y = `Cells with APC mutation`, color = name)) +
+  geom_line(aes(group = donor)) +
+  geom_point(size = 3) +
+  theme_cowplot() +
+  scale_color_manual(values = c("black", "darkolivegreen3")) +
+  scale_y_continuous(labels = label_comma()) +
+  labs(x = "Age (years)", color = NULL) +
+  theme(legend.position = "inside", legend.position.inside = c(0.1, 0.8))
+
+
+df_APC_noSBS89 = left_join(APC_muts_w_o_SBS89, APC_muts) |>
+  pivot_longer(cols = c(`no SBS89`, `all signatures`), values_to = "Cells with APC mutation")
+
+figure_no_SBS89 = df_APC_noSBS89 |>
+  ggplot(aes(x = age, y = `Cells with APC mutation`, color = name)) +
+  geom_line(aes(group = donor)) +
+  geom_point(size = 3) +
+  theme_cowplot() +
+  scale_color_manual(values = c("black", "darkgoldenrod3")) +
+  scale_y_continuous(labels = label_comma()) +
+  labs(x = "Age (years)", color = NULL) +
+  theme(legend.position = "inside", legend.position.inside = c(0.1, 0.8))
+
+figure_S6A = figure_no_SBS88
+saveRDS(figure_S6A, "manuscript/Supplementary_Figures/Figure_S6/figure_S6A.rds")
+
+# summary plot comparing the mutational load
+supplementerary_figure_B = prep_plot(figure_no_SBS89, "B")
+figure_S6A + supplementerary_figure_B
 

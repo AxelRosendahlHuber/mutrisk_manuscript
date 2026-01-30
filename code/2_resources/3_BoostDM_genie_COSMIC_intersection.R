@@ -119,6 +119,8 @@ euler_boostdm_cancer_present(bDM_cancer_intersect |> filter(gene_name == "TP53")
 euler_cohort_level = euler_boostdm_cancer(bDM_cancer_intersect |> filter(gene_name == "TP53"),
                      title = "TP53 pancancer")
 ggsave("manuscript/Supplementary_Figures/Figure_S5/Figure_S5.png", euler_cohort_level, width = 8, height = 6)
+ggsave("manuscript/Supplementary_Figures/Figure_S5/Figure_S5.svg", euler_cohort_level, width = 8, height = 6)
+
 
 
 ##### Colon ######
@@ -160,9 +162,7 @@ bDM_ch_intersect = intersect_boostDM_cancer(boostdm_ch_hg19, cosmic_cohort, geni
 fwrite(bDM_ch_intersect, paste0("processed_data/boostdm/boostdm_genie_cosmic/", tissue, "_boostDM_cancer.txt.gz"))
 
 list = list(
-  "Pan cancer" = bDM_cancer_intersect,
   "Lung cancer" = bDM_lung_intersect,
   "Colon cancer" = bDM_colon_intersect,
-  "Non-solid" = bDM_ns_intersect,
   "Clonal hematopoiesis" = bDM_ch_intersect)
-writexl::write_xlsx(list, "manuscript/Supplementary_Tables/Supplementary_Table_1.xlsx")
+writexl::write_xlsx(list, "manuscript/Supplementary_Tables/Supplementary_Table_6.xlsx")

@@ -94,7 +94,7 @@ for (i in unique(metadata$category)) {
                                      metadata = metadata_filtered |> filter(category == i),
                                      name = i,
                                      input_signatures = input_sig_list[[i]],
-                                     multiple_refit_methods = TRUE,
+                                     multiple_refit_methods = FALSE,
                                      sensitivity_correction =  TRUE)
 }
 
@@ -119,7 +119,7 @@ rates = lapply(mrates_files, fread)
 names(rates) = gsub("_patient_rates.tsv.gz", "", basename(mrates_files))
 expected_rates = rbindlist(rates) |>
   mutate(category = factor(category, levels = levels(metadata$category)))  |>
-  inner_join(metadata) |>
+  inner_join(metadata |> select(-sensitivity, -coverage, -category)) |>
   mutate(across(c(mle, cilow, cihigh), ~ . /sensitivity)) |> # correct for sensitivity
   dplyr::select(-c(donor, age, sensitivity))
 fwrite(expected_rates, file = paste0("processed_data/", tissue, "/", tissue, "_expected_rates.tsv.gz"))

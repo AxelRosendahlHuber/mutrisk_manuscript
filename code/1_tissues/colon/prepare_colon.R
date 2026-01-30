@@ -39,6 +39,8 @@ alt_allele_files = list.files(
 
 names(alt_allele_files) = gsub("_.*", "", basename(alt_allele_files))
 
+
+# filter out samples for which most mutation calls do not match the depth threshold
 excl_list = vector("character")
 list_patient_muts = list()
 for (name in names(total_depth_files)) {
@@ -179,7 +181,7 @@ cell_muts_filtered = cell_muts |>
   filter(sampleID %in% unique(metadata_filtered$sampleID))
 
 # save data
-fwrite(cell_muts_filtered, file = paste0("processed_data/", tissue, "/", tissue, "_cell_muts.tsv"))
+fwrite(cell_muts_filtered, file = paste0("processed_data/", tissue, "/", tissue, "_cell_muts.tsv.gz"))
 fwrite(metadata_filtered, paste0("processed_data/", tissue, "/", tissue, "_metadata.tsv"))
 
 # pre-select active signatures present in blood
@@ -238,5 +240,3 @@ fwrite(ratios, file = paste0("processed_data/", tissue, "/", tissue, "_mut_ratio
 donors = metadata$donor |> unique()
 donors3 =  rbindlist(rates, use.names = TRUE, fill = TRUE) |> pull(donor) |> unique()
 donors2  = sig_donor_rates$donor |> unique()
-setdiff(donors, donors3)
-setdiff(donors, donors2)

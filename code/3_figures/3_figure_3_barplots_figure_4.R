@@ -18,8 +18,9 @@ metadata = lapply(metadata_files, \(x) fread(x)[,c("sampleID", "category", "age"
   rbindlist(idcol = "tissue")
 
 # Load gene_of_interest boostdm
-boostdm = fread("processed_data/boostdm/boostdm_genie_cosmic/pancancer_boostDM_intersect.txt.gz") |>
-  mutate(driver = ifelse(driver == TRUE, "driver", "non-driver"))# change names for overview
+boostdm_files = list.files("processed_data/boostdm/boostdm_genie_cosmic/", pattern = "lung|colon|CH", full.names = TRUE)
+names(boostdm_files) = c("blood", "colon", "lung")
+boostdm = lapply(boostdm_files,  \(x) fread(x) |> mutate(driver = ifelse(driver == TRUE, "driver", "non-driver")))# change names for overview
 
 # load the mutation rates
 expected_rate_list = list()
@@ -32,125 +33,42 @@ for (tissue in c("colon", "blood", "lung")) {
 expected_rates = rbindlist(expected_rate_list, idcol = "tissue", use.names = TRUE)
 ratios = rbindlist(ratio_list, idcol = "tissue", use.names = TRUE)
 
-
 # filters
 gene_of_interest = "TP53"
-  merge_mutrisk_drivers = function(boostdm, ratios, expected_rates,  gene_of_interest, tissue_select = "colon", tissue_name,
-                                   category_select = "normal", cell_probabilities = FALSE,
-                                   individual = FALSE, older_individuals = TRUE) {
-
-    older_individuals = metadata |> filter(tissue == tissue_select,
-                                           category %in% category_select,
-                                           age > 30)
-    ratio_gene_tissue = ratios |> filter(gene_name == gene_of_interest &
-                                           category %in% category_select,
-                                         tissue == tissue_select) |> pull(ratio)
-    expected_rates_select = expected_rates[category %in% category_select &
-                                             tissue == tissue_select, ] |>
-      left_join(older_individuals, by = c("tissue", "sampleID", "category")) |>
-      filter(donor %in% older_individuals$donor)
-
-    ncells_select = tissue_ncells_ci[tissue_ncells_ci$tissue == tissue_select, "mid_estimate"]
-
-    if (cell_probabilities == TRUE) {
-      ncells_select = 1
-    }
-
-    # group by donor individually
-    mutated_rates = expected_rates_select |>
-      group_by(donor, mut_type, tissue) |>
-      summarize(across(c(mle, cilow, cihigh), mean), .groups = "drop") |>
-      mutate(across(c(mle, cilow, cihigh), ~ . * ratio_gene_tissue * ncells_select))
-
-    # modify for specific individual, or for the entiriety
-    if (individual == FALSE) {
-      print("taking mean of the mutation rates")
-
-      mutated_rates_select = mutated_rates |>
-        group_by(mut_type, tissue) |>
-        summarize(mle = mean(mle))
-
-      individuals = older_individuals |>
-        select(donor, age) |> distinct()
-
-      label = paste(tissue_name, "- average age:", format(mean(individuals$age), digits = 3))
-
-
-    } else if (individual %in% unique(mutated_rates$donor)) {
-      mutated_rates_select = mutated_rates |>
-        filter(donor == individual) |>
-        select(mut_type, tissue, mle)
-
-      label = paste(category_select, "donor", individual, " age:", older_individuals[donor == individual] |> pull(age))
-
-    }  else if (individual == "all") {
-      mutated_rates_select = mutated_rates
-      label = "no_label"
-    }   else {print("parameter 'individual' must either be FALSE, or donor-id")}
-
-    boostdM_goi = boostdm[gene_name == gene_of_interest, c("mut_type", "position", "driver")]
-    expected_gene_muts = boostdM_goi |>
-      full_join(mutated_rates_select, relationship = "many-to-many", by = "mut_type")
-
-    return(list(expected_gene_muts = expected_gene_muts, label = label))
-  }
-
-
-make_gene_barplot = function(boostdm, ratios, gene_of_interest,
-                             tissue_select = "colon", tissue_name = NULL,
-                             category_select = "normal",
-                             cell_probabilities = FALSE, individual = FALSE, older_individuals = TRUE,
-                             lollipop_dots = FALSE) {
-
-  if (is.null(tissue_name)) {tissue_name = tissue_select}
-
-  mr_drivers = merge_mutrisk_drivers(boostdm, ratios, gene_of_interest, tissue_select, tissue_name, category_select, cell_probabilities,
-                        individual, older_individuals)
-
-  expected_gene_muts = mr_drivers$expected_gene_muts
-  label = mr_drivers$label
-
-  y_label = "Number of cells with mutation"
-  if (cell_probabilities == TRUE) {
-    ncells_select = 1
-    y_label = "Probability of mutation\n per cell(x10⁻⁶)"
-  }
-
-  if (max(expected_gene_muts$position, na.rm = TRUE) > Inf) { # for now set the level to Inf to allow for large genes
-    expected_gene_muts = expected_gene_muts |>
-      mutate(position = (position - 1) %/% 5 + 1,
-             position = position * 5) |>
-      group_by(position, tissue, mut_type, driver)  |>
-      summarise(mle = sum(mle, na.rm = TRUE), .groups = "drop")
-    x_label = "AA position (5AA bins)"
-  } else { x_label = "AA position"}
-
-  expected_gene_muts_label = left_join(expected_gene_muts, mutrisk:::triplet_match_substmodel)
-
-  # way to make the plot extend both upper and lower axes
-  pl = ggplot(expected_gene_muts_label,
-         aes(x = position, y = mle)) +
-    geom_col(aes(fill = type)) +
-    scale_fill_manual(values = mutrisk::COLORS6) +
-    theme_cowplot() +
-    scale_y_continuous(expand = expansion(mult = c(0, 0.1)), labels = label_comma()) +
-    scale_x_continuous(expand = expansion(mult = c(0.01,0.01))) +
-    labs(x = x_label, y = y_label, title = gene_of_interest, subtitle = label, fill = NULL)
-
-  if (cell_probabilities == TRUE) {
-    pl = pl + scale_y_continuous(expand = expansion(mult = c(0, 0.1)), labels = function(x) x * 1e6)
-  }
-
-  pl
-}
 
 # Make a barplot showing the probabilitites for TP53 (poster usage)
 prob_barplot_lung = make_gene_barplot(boostdm, ratios, gene_of_interest = "TP53", tissue_select = "lung", category_select = "non-smoker",
-                                      individual = "PD34215",cell_probabilities = TRUE) + labs(title = "TP53", subtitle = NULL, y = NULL)
+                                      individual = "PD34215",cell_probabilities = TRUE) + labs(title = "TP53", subtitle = "lung", y = NULL)
 prob_barplot_blood = make_gene_barplot(boostdm, ratios, gene_of_interest = "TP53", tissue_select = "blood",
-                                       individual = "KX008", cell_probabilities = TRUE) + labs(title = "TP53", subtitle = NULL, y = NULL)
+                                       individual = "KX008", cell_probabilities = TRUE) + labs(title = "TP53", subtitle = "blood", y = NULL)
 prob_barplot_colon = make_gene_barplot(boostdm, ratios, gene_of_interest = "TP53", tissue_select = "colon",
-                                       individual = "O340", cell_probabilities = TRUE) + labs(title = "TP53", subtitle = NULL)
+                                       individual = "O340", cell_probabilities = TRUE) + labs(title = "TP53", subtitle = "colon")
+F1B = wrap_plots(prob_barplot_colon, prob_barplot_lung, prob_barplot_blood, ncol = 3, guides = "collect") &
+  theme(plot.subtitle = element_text(hjust = 0.5))
+saveRDS(F1B, "manuscript/figure_panels/figure_1/figure_1B.rds")
+
+# calculate number of CpG vs non-CpG rate
+rates_CpG = expected_rates |>
+  left_join(triplet_match_substmodel) |>
+  left_join(metadata) |>
+  filter(tissue == "colon" & category == "normal") |>
+  mutate(cpg = ifelse(substr(triplet, 3,3) == "C" & substr(triplet, 7,7) == "G", "CpG", "non-CpG")) |>
+  group_by(sampleID, age, cpg, trinuc) |>
+  summarize(sum_rate = sum(mle), .groups = "drop_last") |>
+  summarize(mean_rate = mean(sum_rate)) |>
+  pivot_wider(names_from = cpg, values_from = mean_rate) |>
+  mutate(fold_change = CpG / `non-CpG`) |>
+  arrange(fold_change) |>
+  as.data.table()
+
+# print mutation rate differences CpG vs non-CpG
+cpg_muts = expected_rates |> left_join(triplet_match_substmodel) |>
+  mutate(cpg = ifelse(substr(triplet, 3,3) == "C" & substr(triplet, 7,7) == "G", "CpG", "non-CpG")) |>
+  group_by(cpg, trinuc) |>
+  summarize(sum_rate = sum(mle), .groups = "drop_last") |>
+  summarize(mean_rate = mean(sum_rate))
+print(cpg_muts$mean_rate[1]/cpg_muts$mean_rate[2])
+
 
 # Make a barplot indicating the number of mutations across TP53 across the three tissues (colon, lung, blood)
 barplot_colon = make_gene_barplot(boostdm, ratios, gene_of_interest = "TP53", tissue_select = "colon",
@@ -191,8 +109,6 @@ APC_colon_normal = make_gene_barplot(boostdm, ratios, gene_of_interest = "APC",
                                                       text_y = elem_list_text(colour = c("white"), face = "bold")), axes = "all",
                      remove_labels = "x")
 
-
-
 colon_normal = make_gene_barplot(boostdm, ratios, gene_of_interest = "TP53",
                                  tissue_select = "colon", category_select = "normal", cell_probabilities = FALSE) +
   ggh4x::facet_grid2(driver ~ ., strip = strip_themed(background_y = elem_list_rect(fill = c("#C03830", "#707071")),
@@ -216,7 +132,6 @@ APC_colon_normal = APC_colon_normal + geom_point(data = df_dots, aes(x = positio
   scale_y_continuous(limits = c(NA, 2250), expand = expansion(mult = c(0, 0.1)))
 ggsave("plots/colon/APC_driver_non-driver.png", APC_colon_normal, width = 12, height = 5, bg = "white")
 
-
 # Figure 4A
 F4A1 = make_gene_barplot(boostdm, ratios, gene_of_interest = "APC", tissue_select = "colon", cell_probabilities = FALSE) +
   scale_y_continuous(breaks = extended_breaks(4), expand = expansion(mult = c(0, 0.1))) +
@@ -235,7 +150,6 @@ F4A2 = make_gene_barplot(boostdm, ratios, gene_of_interest = "KRAS", tissue_sele
   scale_x_continuous(expand = c(0,0))
 
 saveRDS(list(F4A1, F4A2), "manuscript/figure_panels/figure_4/figures_AB.rds")
-
 
 # plot the number of mutations for TP53 as individual points
 dotplot_list = list()
@@ -257,6 +171,26 @@ for (i in 1:nrow(color_df)) {
 dotplot_df = rbindlist(dotplot_list) |>
   mutate(tissue = factor(tissue, levels = c("colon", "lung", "blood")),
                          tissue_category = paste0(tissue, "_", category))
+dotplot_df |>
+  filter(tissue_category == "colon_normal" & driver == "driver") |>
+  left_join(metadata) |> filter(age > 35) |>
+  group_by(donor) |>
+  summarize(across(c(mle, cilow, cihigh), mean), groups = "drop") |>
+  summarize(min = min(mle), max = max(mle), mean = mean(mle))
+
+dotplot_df |>
+  filter(tissue == "lung" & driver == "driver") |>
+  left_join(metadata) |> filter(age > 35) |>
+  group_by(donor) |>
+  summarize(across(c(mle, cilow, cihigh), mean), groups = "drop") |>
+  summarize(min = min(mle), max = max(mle), mean = mean(mle))
+
+dotplot_df |>
+  filter(tissue == "lung" & driver == "driver") |>
+  left_join(metadata) |> filter(age > 35) |>
+  group_by(category, donor) |>
+  summarize(across(c(mle, cilow, cihigh), mean), groups = "drop") |>
+  summarize(median(mle))
 
 df_total_muts = dotplot_df |>
   filter(category != "chemotherapy") |>
@@ -301,15 +235,3 @@ F3C
 F3C_bottom = wrap_plots(tissue_plots[-1], widths = c(2.8, 1))
 F3C = tissue_plots[[1]] / F3C_bottom
 F3C
-
-
-# calculate for the individual donors (colibactin) the number of expected mutations:
-# read in the signature-sepecific activity across donors
-colon_sig_rates = fread("processed_data/colon/colon_sig_patient_rates.tsv.gz")
-colon_sig_activity = fread("processed_data/colon/normal/normal_sig_rate_per_sample.tsv.gz")
-
-colon_sig_activity |>
-  mutate(clb = ifelse(clb == "SBS88", "SBS88", "other")) |>
-  group_by(sampleID, donor, clb)
-
-

@@ -56,4 +56,4 @@ hsc_simulation_df |>
   theme(legend.position = "inside", legend.position.inside = c(0.5, 0.5)) +
   labs(x = "age (years)", y = "number of cells", subtitle = "simulation 100,000 HSCs\nDivision rate of 1.3/year",
        color = "number of:")
-ggsave("manuscript/Supplementary_notes/Supplementary_Note_III/SNIII_Figure_1.png", width = 5, height = 4, bg = "white")
+ggsave("manuscript/Supplementary_notes/Supplementary_Note_4/SN4_Figure_1.png", width = 7, height = 5, bg = "white")

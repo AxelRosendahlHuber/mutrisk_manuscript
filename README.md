@@ -16,6 +16,7 @@ if (!"devtools" %in% rownames(installed.packages())) {
 
 devtools::install_github("AxelRosendahlHuber/wintr")
 devtools::install_github("AxelRosendahlHuber/mutrisk")
+devtools::install_github("gersteinlab/siglasso")
 
 # install all other packages required: 
 install.packages("renv")

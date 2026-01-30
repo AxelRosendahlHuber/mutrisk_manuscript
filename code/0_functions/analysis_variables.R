@@ -36,7 +36,7 @@ tissue_ncells_ci_wide$low_estimate[1:2] = tissue_ncells_ci$low_estimate[1:2] / 5
 # Default colors for the different tissues
 blood_colors = c(normal ="#ff725c", chemotherapy = "lightgreen")
 lung_colors = c(`non-smoker` = "#4269d0", `ex-smoker` = "#7c86a1", smoker = "#161459")
-colon_colors = c(normal = "#3ca951", IBD = "#6cc5b0", POLE = "#145220", POLD1 = "#222e24")
+colon_colors = c(normal = "#3ca951", IBD = "#6cc5b0",  POLD1 = "#222e24", POLE = "#145220")
 skin_colors = c("#efb118" , "#ff8ab7", "#9c6b4e")
 liver_colors = c("#800000", "#B87333", "#5C4033")
 
