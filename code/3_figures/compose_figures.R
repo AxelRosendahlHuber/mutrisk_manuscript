@@ -43,8 +43,8 @@ tissue_plots = mapply(prep_plot, tissue_plots_raw, label = c("C", "D", "E"), all
 figure_3_bottom = wrap_plots(tissue_plots, nrow = 1, widths = c(4, 3, 1.2))
 figure_3 = figure_3_top / figure_3_bottom + plot_layout(heights = c(1.2, 1))
 
-ggsave("manuscript/Figure_3/figure_3.png", figure_3, width = 15, height = 10)
-ggsave("manuscript/Figure_3/figure_3.pdf", figure_3, width = 15, height = 10)
+ggsave("manuscript/Figure_3/figure_3.png", figure_3, width = 16, height = 10)
+ggsave("manuscript/Figure_3/figure_3.pdf", figure_3, width = 16, height = 10)
 
 
 ##### Figure 4
@@ -72,6 +72,17 @@ figure_4 = figure_4_top / figure_4_middle / figure_4_bottom# + plot_layout(heigh
 
 ggsave("manuscript/Figure_4/figure_4.png", figure_4, width = 22, height = 11)
 ggsave("manuscript/Figure_4/figure_4.pdf", figure_4, width = 22, height = 11)
+
+# alternative figure 4:
+top = list_figure_4AB[[1]] /
+  (figs$F4C | readRDS("manuscript/figure_panels/figure_4/figures_adenoma.rds") | figures_4_CRC$APC_single_snv) /
+  (figs$F4E | figures_4_CRC$APC_double | plot_spacer()) /
+  list_figure_4AB[[2]] /
+  (figs$F4D | figures_4_CRC$KRAS_single_snv | plot_spacer()) /
+  (figs$F4G | figures_4_CRC$KRAS_APC_double | plot_spacer())
+
+ggsave("manuscript/Figure_4/figure_4_alternative.png", top, height = 15, width = 15)
+
 
 ##### Figure 5
 figure_5A = readRDS("manuscript/figure_panels/figure_5/figure_5A.rds") |> prep_plot("A", all_margin = 3)

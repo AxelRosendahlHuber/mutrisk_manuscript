@@ -377,10 +377,10 @@ gene_counts = gene_counts |>
 gene_counts = sample_n(gene_counts, 1e5)
 
 # analyze the frequency of mutations using the groupby setting to "donor". Used for the main figures
-exome_analysis = analyze_probability(gene_counts = gene_counts, analysis_name = "exome analysis", groupby = "donor")
-exome_analysis_normal = analyze_probability(gene_counts = gene_counts, analysis_name = "exome analysis", groupby = "onor", filter_normal = TRUE)
+exome_analysis_normal = analyze_probability(gene_counts = gene_counts, analysis_name = "exome analysis", groupby = "donor", filter_normal = TRUE)
 save_plots(exome_analysis_normal$plot_list, path = "plots/coverage_saturation/", name = "normal_exome", width = 7, height = 5)
 save_plots(exome_analysis_normal$plot_list, path = "plots/coverage_saturation/", name = "normal_exome_wideplot", width = 10, height = 5)
+exome_analysis = analyze_probability(gene_counts = gene_counts, analysis_name = "exome analysis", groupby = "donor")
 
 # save for presentation:
 ggsave("plots/coverage_saturation/presentation_line.png", exome_analysis_normal$plot_list$plot_saturation_curve_ci_single_ncells,
@@ -389,7 +389,6 @@ ggsave("plots/coverage_saturation/presentation_line1.png", exome_analysis_normal
        width = 10, height = 3.7)
 ggsave("plots/coverage_saturation/presentation_line2.png", exome_analysis_normal$plot_list$plot_saturation_curve_ci,
        width = 10, height = 3.7)
-
 
 # perform similar analysis, now setting the groupby to "sampleID". Used for supplementary figures
 #sampleID_exome_analysis = analyze_probability(gene_counts = gene_counts, analysis_name = "exome analysis", groupby = "sampleID")
@@ -727,6 +726,9 @@ plot_list_normal = plot_driver_incidence(mutation_list = exome_normal_list,
                                          drivers = drivers_normal, name = "normal_exome", plot_rows = 1,
                                          specific_individuals = c("O340", "PD34215", "KX008"))
 
+
+plot_list_normal$barplot_percent_probability
+
 drivers_normal = drivers |> filter(category %in% c("normal", "non-smoker"))
 plot_list_normal_individuals = plot_driver_incidence(mutation_list = exome_normal_list,
                                          drivers = drivers_normal, name = "normal_exome", plot_rows = 1,
@@ -767,4 +769,3 @@ TP53_plots = plot_driver_incidence(mutation_list = TP53_analysis$result_plot_df,
                                    drivers = drivers[grepl("TP53", driver_name)],
                                    name = "TP53")
 save_plots(TP53_plots, "plots/coverage_saturation/", "TP53_drivers")
-

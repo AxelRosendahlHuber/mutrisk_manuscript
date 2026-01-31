@@ -155,12 +155,18 @@ plot_figures = function(driver_sites, y_label, metadata = metadata) {
 # DNMT3A driver hotspot
 DNMT3A_R882H_hotspot = CH_bDM[aachange == "R882H" & gene_name == "DNMT3A", .N, c("gene_name", "mut_type", "aachange", "position", "driver")]
 DNMT3A_R882H_hotspot_plots = plot_figures(DNMT3A_R882H_hotspot, "Number of cells with\nDNMT3A R882H mutation", metadata = metadata )
-figure_S7_top = mapply(DNMT3A_R882H_hotspot_plots[2:1], c("A", "B"), FUN = prep_plot) |>
+
+figure_S8 = mapply(DNMT3A_R882H_hotspot_plots[2:1], c("A", "B"), FUN = prep_plot) |>
   wrap_plots()
+ggsave("manuscript/Supplementary_Figures/Figure_S8/Figure_S8.png", figure_S8, width = 10, height = 5)
+ggsave("manuscript/Supplementary_Figures/Figure_S8/Figure_S8.pdf", figure_S8, width = 10, height = 5)
+
 
 # calculate the time for a clone to be present at a VAF of 0.02:
-
 # assuming 100K HSCs
+
+extension_age = log(26000) / log(1.148)
+
 extension_age = log(2000) / log(1.148)
 metadata_extension = metadata |>
   mutate(age = age + extension_age)
@@ -168,23 +174,23 @@ metadata_extension = metadata |>
 driver_rates = calc_exp_muts(expected_rates, DNMT3A_R882H_hotspot, metadata= metadata, ratios = ratios, ncells = ncells)
 driver_rates_extension = calc_exp_muts(expected_rates, DNMT3A_R882H_hotspot, metadata= metadata_extension, ratios = ratios, ncells = ncells)
 
-list(mutation_induction = driver_rates,
-     VAF_limit = driver_rates_extension) |>
+
+age_shift_figure = list(`mutation induction rate` = driver_rates,
+                             `VAF detection limit CH` = driver_rates_extension) |>
   rbindlist(idcol = "type") |>
-  ggplot(aes(x = age, y = mle*13)) +
-  geom_pointrange(aes(ymin = cilow*13, ymax = cihigh*13, color = type))  +
-  labs(x = "Age (years)", subtitle = "1.3 million HSCs") +
+  ggplot(aes(x = age, y = mle)) +
+  geom_pointrange(aes(ymin = cilow, ymax = cihigh, color = type))  +
+  labs(x = "Age (years)", subtitle = "100,000 HSCs", y = "Fraction of individuals with ") +
+  scale_color_manual(values = c(blood_colors, "#8c463a")) +
   theme_cowplot()
 # add in the additional aging shift, make this also part of supplementary figure S7
+age_shift_figure
 
-figure_S8 = mapply(DNMT3A_R882H_hotspot_plots[2:1], c("A", "B"), FUN = prep_plot) |>
-  wrap_plots()
-
-ggsave("manuscript/Supplementary_Figures/Figure_S8/Figure_S8.png", figure_S8, width = 10, height = 5)
-ggsave("manuscript/Supplementary_Figures/Figure_S8/Figure_S8.pdf", figure_S8, width = 10, height = 5)
+figure_S9 = age_shift_figure
+ggsave("manuscript/Supplementary_Figures/Figure_S9/Figure_S9.png", figure_S9, width = 7, height = 5)
+ggsave("manuscript/Supplementary_Figures/Figure_S9/Figure_S9.pdf", figure_S9, width = 7, height = 5)
 
 
-DNMT3A_drivers = CH_bDM[gene_name == "DNMT3A" & driver == TRUE , .N, c("gene_name", "mut_type", "aachange", "position", "driver")]
 DNMT3A_driver_plot = plot_figures(DNMT3A_drivers, "Number of cells with\n DNMT3A driver mutation", metadata)
 ggsave("plots/blood/masha_exploration/DNMT3A_driver_plot.png", DNMT3A_driver_plot, width = 5, height = 4.5, bg = "white")
 
