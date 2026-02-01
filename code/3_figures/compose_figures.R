@@ -57,31 +57,58 @@ figure_4B = list_figure_4AB[[2]]  |> prep_plot(label = 'B', all_margin = mg)
 figure_4_top = figure_4A + figure_4B
 
 figs = readRDS("manuscript/figure_panels/figure_4/figures_C-G.rds")
-annotated_figs = lapply(names(figs), \(x) prep_plot(figs[[x]], substr(x, 3,3), all_margin = mg))
-figure_4_middle = wrap_plots(annotated_figs, nrow = 1)
+figs = figs[-c(2,4)]
+names(figs) = c("C", "F", "H")
+annotated_figs = lapply(names(figs), \(x) prep_plot(figs[[x]], label = x, all_margin = mg))
+figure_4_middle = wrap_plots(c(annotated_figs[1], plot_spacer(), annotated_figs[2:3]), nrow = 1)
 
 figure_4H = readRDS("manuscript/figure_panels/figure_4/figures_adenoma.rds") |>
-  prep_plot(label = 'H', all_margin = mg)
+  prep_plot(label = 'D', all_margin = mg)
 
 figures_4_CRC = readRDS("manuscript/figure_panels/figure_4/figure_4_CRC.rds")
-
-annotated_figs = mapply(prep_plot, figures_4_CRC, c("I", "J", "K", "L", "M"), all_margin = 2)
+figures_4_CRC = figures_4_CRC[-c(2,4)]
+annotated_figs = mapply(prep_plot, figures_4_CRC, c("E", "G", "I"), all_margin = 2)
 figure_4_bottom = wrap_plots(c(figure_4H, annotated_figs), nrow = 1)
 
 figure_4 = figure_4_top / figure_4_middle / figure_4_bottom# + plot_layout(heights = c(1.5,1, 1))
 
-ggsave("manuscript/Figure_4/figure_4.png", figure_4, width = 22, height = 11)
-ggsave("manuscript/Figure_4/figure_4.pdf", figure_4, width = 22, height = 11)
+ggsave("manuscript/Figure_4/figure_4.png", figure_4, width = 18, height = 11)
+ggsave("manuscript/Figure_4/figure_4.pdf", figure_4, width = 18, height = 11)
 
-# alternative figure 4:
-top = list_figure_4AB[[1]] /
-  (figs$F4C | readRDS("manuscript/figure_panels/figure_4/figures_adenoma.rds") | figures_4_CRC$APC_single_snv) /
-  (figs$F4E | figures_4_CRC$APC_double | plot_spacer()) /
-  list_figure_4AB[[2]] /
-  (figs$F4D | figures_4_CRC$KRAS_single_snv | plot_spacer()) /
-  (figs$F4G | figures_4_CRC$KRAS_APC_double | plot_spacer())
+  # # earlier original figure 4
+# list_figure_4AB = readRDS("manuscript/figure_panels/figure_4/figures_AB.rds")
+# figure_4A = list_figure_4AB[[1]] |> prep_plot(label = 'A', all_margin = mg)
+# figure_4B = list_figure_4AB[[2]]  |> prep_plot(label = 'B', all_margin = mg)
+# figure_4_top = figure_4A + figure_4B
+#
+# figs = readRDS("manuscript/figure_panels/figure_4/figures_C-G.rds")
+# annotated_figs = lapply(names(figs), \(x) prep_plot(figs[[x]], substr(x, 3,3), all_margin = mg))
+# figure_4_middle = wrap_plots(annotated_figs, nrow = 1)
+#
+# figure_4H = readRDS("manuscript/figure_panels/figure_4/figures_adenoma.rds") |>
+#   prep_plot(label = 'H', all_margin = mg)
+#
+# figures_4_CRC = readRDS("manuscript/figure_panels/figure_4/figure_4_CRC.rds")
+#
+# annotated_figs = mapply(prep_plot, figures_4_CRC, c("I", "J", "K", "L", "M"), all_margin = 2)
+# figure_4_bottom = wrap_plots(c(figure_4H, annotated_figs), nrow = 1)
+#
+# figure_4 = figure_4_top / figure_4_middle / figure_4_bottom# + plot_layout(heights = c(1.5,1, 1))
+#
+# ggsave("manuscript/Figure_4/figure_4.png", figure_4, width = 22, height = 11)
+# ggsave("manuscript/Figure_4/figure_4.pdf", figure_4, width = 22, height = 11)
+#
+#
 
-ggsave("manuscript/Figure_4/figure_4_alternative.png", top, height = 15, width = 15)
+# # alternative figure 4:
+# top = list_figure_4AB[[1]] /
+#   (figs$F4C | readRDS("manuscript/figure_panels/figure_4/figures_adenoma.rds") | figures_4_CRC$APC_single_snv) /
+#   (figs$F4E | figures_4_CRC$APC_double | plot_spacer()) /
+#   list_figure_4AB[[2]] /
+#   (figs$F4D | figures_4_CRC$KRAS_single_snv | plot_spacer()) /
+#   (figs$F4G | figures_4_CRC$KRAS_APC_double | plot_spacer())
+#
+# ggsave("manuscript/Figure_4/figure_4_alternative.png", top, height = 15, width = 15)
 
 
 ##### Figure 5

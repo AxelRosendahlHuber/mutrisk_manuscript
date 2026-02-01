@@ -186,13 +186,13 @@ age_shift_figure = list(`mutation induction rate` = driver_rates,
 # add in the additional aging shift, make this also part of supplementary figure S7
 age_shift_figure
 
-figure_S9 = age_shift_figure
-ggsave("manuscript/Supplementary_Figures/Figure_S9/Figure_S9.png", figure_S9, width = 7, height = 5)
-ggsave("manuscript/Supplementary_Figures/Figure_S9/Figure_S9.pdf", figure_S9, width = 7, height = 5)
+figure_S9A = age_shift_figure
 
-
-DNMT3A_driver_plot = plot_figures(DNMT3A_drivers, "Number of cells with\n DNMT3A driver mutation", metadata)
+# figure of DNMT3A driver mutations across age
+DNMT3A_driver_muts = CH_bDM[gene_name == "DNMT3A" & driver == TRUE , .N, c("gene_name", "mut_type", "aachange", "position", "driver")]
+DNMT3A_driver_plot = plot_figures(DNMT3A_driver_muts, "Number of cells with\n DNMT3A any mutation", metadata)
 ggsave("plots/blood/masha_exploration/DNMT3A_driver_plot.png", DNMT3A_driver_plot, width = 5, height = 4.5, bg = "white")
+
 
 DNMT3A_all_muts = CH_bDM[gene_name == "DNMT3A", .N, c("gene_name", "mut_type", "aachange", "position", "driver")]
 DNMT3A_all_plot = plot_figures(DNMT3A_all_muts, "Number of cells with\n DNMT3A any mutation", metadata)
@@ -290,3 +290,22 @@ saveRDS(F5A, "manuscript/figure_panels/figure_5/figure_5A.rds")
 saveRDS(F5B, "manuscript/figure_panels/figure_5/figure_5B.rds")
 saveRDS(F5C, "manuscript/figure_panels/figure_5/figure_5C.rds")
 saveRDS(F5D, "manuscript/figure_panels/figure_5/figure_5D.rds")
+
+# for supplementary figure 9b, add the ukbiobank data
+DNMT3A_age = fread("raw_data/UKBiobank/UKB_age_frequencies_DNMT3A.tsv")
+figure_S9B = DNMT3A_age |>
+  mutate(fraction_DNMT3A_R882H = `R/H` / Individuals) |>
+  filter(Individuals >= 2000) |>
+  ggplot(aes(x = Age, y = fraction_DNMT3A_R882H)) +
+  geom_pointpath() +
+  theme_cowplot() +
+  scale_y_continuous(labels = label_percent()) +
+  labs(x = "Age (years)", y = "Fraction of UKB individuals\nwith DNMT3A R882H CH")
+
+# Save
+figure_S9A = prep_plot(figure_S9A, "A")
+figure_S9B = prep_plot(figure_S9B, "B")
+
+figure_S9 = figure_S9A + figure_S9B + plot_layout(widths = c(1.5, 1))
+ggsave("manuscript/Supplementary_Figures/Figure_S9/Figure_S9.png", figure_S9, width = 12, height = 5)
+ggsave("manuscript/Supplementary_Figures/Figure_S9/Figure_S9.pdf", figure_S9, width = 12, height = 5)
