@@ -164,9 +164,7 @@ ggsave("manuscript/Supplementary_Figures/Figure_S8/Figure_S8.pdf", figure_S8, wi
 
 # calculate the time for a clone to be present at a VAF of 0.02:
 # assuming 100K HSCs
-
 extension_age = log(26000) / log(1.148)
-
 extension_age = log(2000) / log(1.148)
 metadata_extension = metadata |>
   mutate(age = age + extension_age)
@@ -208,21 +206,23 @@ TP53_drivers = CH_bDM[gene_name == "TP53" & driver == TRUE , .N, c("gene_name", 
 TP53_driver_plot = plot_figures(TP53_drivers, "Number of cells with\nTP53 driver mutation", metadata)
 ggsave("plots/blood/masha_exploration/TP53_driver_plot.png", TP53_driver_plot, width = 5, height = 4.5, bg = "white")
 
-TET2_drivers = CH_bDM[gene_name == "TET2", .N, c("gene_name", "mut_type", "aachange", "position", "driver")]
-TET2_all_plot = plot_figures(TET2_drivers, "Number of cells with\nTET2 any mutation", metadata)
-ggsave("plots/blood/masha_exploration/TET2_all_plot.png", TET2_all_plot, width = 5, height = 4.5, bg = "white")
+# TET2 takes very long and is not used
+#TET2_drivers = CH_bDM[gene_name == "TET2", .N, c("gene_name", "mut_type", "aachange", "position", "driver")]
+#TET2_all_plot = plot_figures(TET2_drivers, "Number of cells with\nTET2 any mutation", metadata)
+#ggsave("plots/blood/masha_exploration/TET2_all_plot.png", TET2_all_plot, width = 5, height = 4.5, bg = "white")
 
 TP53_drivers = CH_bDM[gene_name == "TP53", .N, c("gene_name", "mut_type", "aachange", "position", "driver")]
 TP53_all_plot = plot_figures(TP53_drivers, "Number of cells with\nTP53 any mutation", metadata)
 ggsave("plots/blood/masha_exploration/TP53_all_plot.png", TP53_all_plot, width = 5, height = 4.5, bg = "white")
 
-# add additional genes (for supplementary)
-
-# expected mutation rate for the average of sm
-driver_rates = calc_exp_muts(expected_rates, DNMT3A_drivers, metadata= metadata, ratios = ratios, ncells = ncells) |>
+# Manuscript Numbers
+calc_exp_muts(expected_rates, DNMT3A_drivers, metadata= metadata, ratios = ratios, ncells = ncells) |>
   filter(age > 0 ) |>
   summarize(across(c(mle, cilow, cihigh, age), mean))
 
+calc_exp_muts(expected_rates, DNMT3A_drivers, metadata= metadata, ratios = ratios, ncells = ncells) |>
+  filter(age > 0 ) |>
+  summarize(across(c(mle, cilow, cihigh, age), \(x) mean(x)*13))
 
 # make the general figure:
 plots = c(DNMT3A_driver_plot, TET2_driver_plot, TP53_driver_plot)
@@ -257,6 +257,7 @@ mutation_list = list(
 UKB_age_frequencies = fread("raw_data/UKBiobank/UKB_age_frequencies_DNMT3A.tsv") |>
   select(Age, Individuals)
 
+
 # start for loop:
 UKB_plot_list = list()
 CH_genes = c("DNMT3A", "TET2", "TP53")
@@ -273,6 +274,10 @@ for (i in 1:3) {
   UKB_age_incidence = left_join(UKB_age_frequencies, age_samples) |>
     filter(Individuals > 2000) |>
     mutate(relative_incidence = n / Individuals)
+
+  print(gene)
+  (UKB_age_incidence |>
+    filter(Age == 55)  |> pull(relative_incidence) * 100 )|> print()
 
   # consider grouping the data as in colon in bins of 10
   plt = ggplot(UKB_age_incidence, aes(x = Age, y = relative_incidence)) +
@@ -296,6 +301,13 @@ DNMT3A_age = fread("raw_data/UKBiobank/UKB_age_frequencies_DNMT3A.tsv")
 DNMT3A_age_fraction = DNMT3A_age |>
   mutate(fraction_DNMT3A_R882H = `R/H` / Individuals) |>
   filter(Individuals >= 2000)
+
+# Manuscript Number
+DNMT3A_age_fraction |>
+  filter(Age == 55) |>
+  pull(`fraction_DNMT3A_R882H`) * 100
+
+
 figure_S9B = DNMT3A_age_fraction |>
   ggplot(aes(x = Age, y = fraction_DNMT3A_R882H)) +
   geom_pointpath() +

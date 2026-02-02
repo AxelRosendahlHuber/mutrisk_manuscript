@@ -112,16 +112,6 @@ bDM_cancer_intersect = intersect_boostDM_cancer(boostdm_cohort = boostdm_hg19[co
                                                 cosmic_cohort = COSMIC_cancer_type,  genie_cohort = genie_cancer_type)
 fwrite(bDM_cancer_intersect, paste0("processed_data/boostdm/boostdm_genie_cosmic/", tissue, "_boostDM_intersect.txt.gz"))
 
-# make supplementary figure S3
-euler_boostdm_cancer_present(bDM_cancer_intersect |> filter(gene_name == "TP53"),
-                                                    title = "TP53 pancancer")
-
-euler_cohort_level = euler_boostdm_cancer(bDM_cancer_intersect |> filter(gene_name == "TP53"),
-                     title = "TP53 pancancer")
-ggsave("manuscript/Supplementary_Figures/Figure_S5/Figure_S5.png", euler_cohort_level, width = 8, height = 6)
-ggsave("manuscript/Supplementary_Figures/Figure_S5/Figure_S5.svg", euler_cohort_level, width = 8, height = 6)
-
-
 
 ##### Colon ######
 tissue = "colon"
@@ -131,6 +121,16 @@ genie_cohort =  genie_cancer_type |>   filter(ONCOTREE_CODE %in% c("COAD", "READ
 
 bDM_colon_intersect = intersect_boostDM_cancer(boostdm_colon, cosmic_cohort, genie_cohort)
 fwrite(bDM_colon_intersect, paste0("processed_data/boostdm/boostdm_genie_cosmic/", tissue, "_boostDM_cancer.txt.gz"))
+
+# make supplementary figure S3
+euler_boostdm_cancer_present(bDM_colon_intersect |> filter(gene_name == "TP53"),
+                             title = "TP53 Colon Driver")
+
+euler_cohort_level = euler_boostdm_cancer(bDM_colon_intersect |> filter(gene_name == "TP53"),
+                                          title = "TP53 Colon Driver")
+ggsave("manuscript/Supplementary_Figures/Figure_S5/Figure_S5.png", euler_cohort_level, width = 8, height = 6)
+ggsave("manuscript/Supplementary_Figures/Figure_S5/Figure_S5.svg", euler_cohort_level, width = 8, height = 6)
+
 
 ##### LUNG ######
 tissue = "lung"

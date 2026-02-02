@@ -102,7 +102,7 @@ ggsave("manuscript/Supplementary_Figures/Figure_S3/Figure_S3.png", figure_S3, wi
 ggsave("manuscript/Supplementary_Figures/Figure_S3/Figure_S3.pdf", figure_S3, width = 14, height = 12)
 
 # APC colon barplot
-APC_colon_normal = make_gene_barplot(boostdm, ratios, gene_of_interest = "APC",
+APC_colon_normal = make_gene_barplot(boostdm, ratios, expected_rates, gene_of_interest = "APC",
                                      tissue_select = "colon", category_select = "normal", cell_probabilities = FALSE) +
   ggh4x::facet_grid2(driver ~ ., strip = strip_themed(background_y = elem_list_rect(fill = c("#C03830", "#707071")),
                                                       text_y = elem_list_text(colour = c("white"), face = "bold")), axes = "all",
@@ -170,8 +170,18 @@ for (i in 1:nrow(color_df)) {
 dotplot_df = rbindlist(dotplot_list) |>
   mutate(tissue = factor(tissue, levels = c("colon", "lung", "blood")),
                          tissue_category = paste0(tissue, "_", category))
+
+# Manuscript numbers: colon drivers TP53
 dotplot_df |>
   filter(tissue_category == "colon_normal" & driver == "driver") |>
+  left_join(metadata) |> filter(age > 35) |>
+  group_by(donor) |>
+  summarize(across(c(mle, cilow, cihigh), mean), groups = "drop") |>
+  summarize(min = min(mle), max = max(mle), mean = mean(mle))
+
+# Manuscript numbers: colon drivers Lung TP53
+dotplot_df |>
+  filter(tissue == "lung" & driver == "driver") |>
   left_join(metadata) |> filter(age > 35) |>
   group_by(donor) |>
   summarize(across(c(mle, cilow, cihigh), mean), groups = "drop") |>
@@ -180,10 +190,11 @@ dotplot_df |>
 dotplot_df |>
   filter(tissue == "lung" & driver == "driver") |>
   left_join(metadata) |> filter(age > 35) |>
-  group_by(donor) |>
+  group_by(tissue_category, donor) |>
   summarize(across(c(mle, cilow, cihigh), mean), groups = "drop") |>
   summarize(min = min(mle), max = max(mle), mean = mean(mle))
 
+# Manuscript numbers: colon drivers Lung TP53 - median
 dotplot_df |>
   filter(tissue == "lung" & driver == "driver") |>
   left_join(metadata) |> filter(age > 35) |>

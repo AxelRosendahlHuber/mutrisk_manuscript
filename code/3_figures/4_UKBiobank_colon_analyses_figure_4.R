@@ -115,7 +115,7 @@ KRAS_single_snv = expected_rates_normal |>
   group_by(donor, category) |>
   summarise(across(c(mle, cilow, cihigh, age), mean), groups = "drop")
 
-# compare TP53 vs BRAF mutation
+# Manuscript nubmers: compare TP53 vs BRAF mutation
 TP53_R = colon_bDM[gene_name == "TP53" & aachange == "R175H", .N, c("gene_name", "mut_type", "aachange", "position")]
 expected_rates_normal |>
 inner_join(TP53_R, by = "mut_type", relationship = "many-to-many") |>
@@ -136,7 +136,7 @@ expected_rates_normal |>
   summarise(mean = mean(mle), min = min(mle), max = max(mle), .groups = "drop_last")  |>
   summarise( min = min(mean), max = max(mean), mean = mean(mean))
 
-# compare TP53 vs BRAF mutation
+# Manuscript numbers  ompare TP53 vs APC mutation
 TP53_R = colon_bDM[gene_name == "TP53" & driver == "TRUE", .N, c("gene_name", "mut_type", "aachange", "position")]
 TP53_R$N |> sum()
 expected_rates_normal |>
@@ -148,7 +148,7 @@ expected_rates_normal |>
   group_by( category, donor, sampleID) |>
   summarise(mle = sum(mle), .groups = "drop_last")  |>
   summarise(mean = mean(mle), min = min(mle), max = max(mle), .groups = "drop_last")  |>
-  summarise( min = min(mean), max = max(mean), mean = mean(mean))
+  summarise( min = min(mean), max = max(mean), mean = mean(mean)) |> as.data.frame()
 
 # Expected number of cells with double mutations:
 apc_counts_boostdm = colon_bDM[gene_name == "APC" & driver == TRUE, .N, by = c("gene_name", "mut_type",  "driver")]
@@ -216,7 +216,6 @@ double_apc_ncells$ncells_mut |> min()
 double_apc_ncells$ncells_mut |> mean()
 double_apc_ncells$ncells_mut |> max()
 
-
 double_apc_ncells = double_apc |>
   mutate(ncells_mut = mle * ncells) |>
   filter(age == 60) |>
@@ -227,16 +226,22 @@ double_apc_ncells$ncells_mut |> min()
 double_apc_ncells$ncells_mut |> mean()
 double_apc_ncells$ncells_mut |> max()
 
+KRAS_single_snv = expected_rates_normal |>
+  inner_join(KRAS_single_snv_muts, by = "mut_type", relationship = "many-to-many") |>
+  left_join(metadata) |>
+  filter(age == 60) |>
+  left_join(ratios) |>
+  mutate(across(c(mle, cilow, cihigh), ~ . * ratio)) |>
+  group_by(donor, category) |>
+  summarise(across(c(mle, cilow, cihigh, age), mean), groups = "drop")
 
-apc_kras = apc_single_snv |>
+double_apc_kras = double_apc_ncells |>
   mutate(mle = mle * KRAS_single_snv$mle,
          cilow = cilow * KRAS_single_snv$cilow,
          cihigh = cihigh * KRAS_single_snv$cihigh)
 
-double_apc_kras = double_apc |>
-  mutate(mle = mle * KRAS_single_snv$mle,
-         cilow = cilow * KRAS_single_snv$cilow,
-         cihigh = cihigh * KRAS_single_snv$cihigh)
+# Manuscript number
+mean(double_apc_kras$mle * ncells) * 1e6
 
 # manuscript: number of 60-year olds with 2x APC and KRAS mutation
 risk_double_apc_kras= double_apc_kras |>
@@ -312,7 +317,7 @@ ukbiobank_crc_plot = ukbiobank_crc |>
 
 # Fraction of CRC mutated for APC or KRAS SNV combinations
 mutated_fractions = fread("processed_data/GENIE_17/CRC_mutation_fractions.txt")
-writexl::write_xlsx(mutated_fractions, "manuscript/Supplementary_Table_6.xlsx")
+writexl::write_xlsx(mutated_fractions, "manuscript/Supplementary_Tables/Supplementary_Table_6.xlsx")
 
 # make combinations of the different ages and CRC-mutation combinations
 risk = expand.grid(percentages = mutated_fractions$percentages, CRC_cumulative_risk = ukbiobank_crc$CRC_cumulative_risk)
@@ -491,4 +496,3 @@ saveRDS(figure_S6A, "manuscript/Supplementary_Figures/Figure_S6/figure_S6A.rds")
 # summary plot comparing the mutational load
 supplementerary_figure_B = prep_plot(figure_no_SBS89, "B")
 figure_S6A + supplementerary_figure_B
-
