@@ -7,6 +7,8 @@ make_gene_barplot = function(boostdm, ratios, expected_rates,  gene_of_interest,
 
   mr_drivers = merge_mutrisk_drivers(boostdm, ratios, expected_rates, gene_of_interest, tissue_select, tissue_name, category_select, cell_probabilities,
                                      individual, filter_age = TRUE)
+  diff_high_low =  max(mr_drivers$expected_gene_muts$mle) / min(mr_drivers$expected_gene_muts$mle)
+  print(paste0("difference max/min probability: ", round(diff_high_low, 1)))
 
   expected_gene_muts = mr_drivers$expected_gene_muts
   label = mr_drivers$label
@@ -26,7 +28,7 @@ make_gene_barplot = function(boostdm, ratios, expected_rates,  gene_of_interest,
     x_label = "AA position (5AA bins)"
   } else { x_label = "AA position"}
 
-  expected_gene_muts_label = left_join(expected_gene_muts, mutrisk:::triplet_match_substmodel)
+  expected_gene_muts_label = left_join(expected_gene_muts, mutrisk:::triplet_match_substmodel, by = "mut_type")
 
   # way to make the plot extend both upper and lower axes
   pl = ggplot(expected_gene_muts_label,

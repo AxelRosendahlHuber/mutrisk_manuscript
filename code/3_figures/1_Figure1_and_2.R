@@ -6,6 +6,7 @@ library(tidyverse)
 library(ggh4x)
 library(mutrisk)
 source("code/0_functions/analysis_variables.R")
+set.seed(1234)
 
 # load metadata
 md_files = list.files("processed_data/", recursive = TRUE, pattern = "_metadata",
@@ -723,8 +724,7 @@ exome_list = exome_analysis$result_plot_df
 exome_normal_list = exome_list |> filter(category %in% c("normal", "non-smoker"))
 drivers_normal = drivers |> filter(category %in% c("normal", "non-smoker"))
 plot_list_normal = plot_driver_incidence(mutation_list = exome_normal_list,
-                                         drivers = drivers_normal, name = "normal_exome", plot_rows = 1,
-                                         specific_individuals = c("O340", "PD34215", "KX008"))
+                                         drivers = drivers_normal, name = "normal_exome", plot_rows = 1)
 
 
 plot_list_normal$barplot_percent_probability
