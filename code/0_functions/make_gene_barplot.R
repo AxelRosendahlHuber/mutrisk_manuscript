@@ -1,0 +1,44 @@
+make_gene_barplot = function(boostdm, ratios, expected_rates,  gene_of_interest,
+                             tissue_select = "colon", tissue_name = NULL,
+                             category_select = "normal",
+                             cell_probabilities = FALSE, individual = FALSE, older_individuals = TRUE) {
+
+  if (is.null(tissue_name)) {tissue_name = tissue_select}
+
+  mr_drivers = merge_mutrisk_drivers(boostdm, ratios, expected_rates, gene_of_interest, tissue_select, tissue_name, category_select, cell_probabilities,
+                                     individual, filter_age = TRUE)
+
+  expected_gene_muts = mr_drivers$expected_gene_muts
+  label = mr_drivers$label
+
+  y_label = "Number of cells with mutation"
+  if (cell_probabilities == TRUE) {
+    ncells_select = 1
+    y_label = "Probability of mutation\n per cell(x10⁻⁶)"
+  }
+
+  if (max(expected_gene_muts$position, na.rm = TRUE) > Inf) { # for now set the level to Inf to allow for large genes
+    expected_gene_muts = expected_gene_muts |>
+      mutate(position = (position - 1) %/% 5 + 1,
+             position = position * 5) |>
+      group_by(position, tissue, mut_type, driver)  |>
+      summarise(mle = sum(mle, na.rm = TRUE), .groups = "drop")
+    x_label = "AA position (5AA bins)"
+  } else { x_label = "AA position"}
+
+  expected_gene_muts_label = left_join(expected_gene_muts, mutrisk:::triplet_match_substmodel)
+
+  # way to make the plot extend both upper and lower axes
+  pl = ggplot(expected_gene_muts_label,
+              aes(x = position, y = mle, fill = type)) +
+    geom_col() +
+    scale_fill_manual(values = mutrisk::COLORS6) +
+    theme_cowplot() +
+    scale_y_continuous(expand = expansion(mult = c(0, 0.1))) +
+    labs(x = x_label, y = y_label, title = gene_of_interest, subtitle = label, fill = NULL)
+
+  if (cell_probabilities == TRUE) {
+    pl = pl + scale_y_continuous(expand = expansion(mult = c(0, 0.1)), labels = function(x) x * 1e6)
+  }
+  pl
+}

@@ -7,10 +7,10 @@ merge_mutrisk_drivers = function(boostdm, ratios, expected_rates,  gene_of_inter
 
   if (filter_age == TRUE) {older_individuals = older_individuals |> filter(age > 30)}
   ratio_gene_tissue = ratios |> filter(gene_name == gene_of_interest &
-                                         category %in% category_select,
+                                         category %in% category_select &
                                        tissue == tissue_select) |> pull(ratio)
-  expected_rates_select = expected_rates[category %in% category_select &
-                                           tissue == tissue_select, ] |>
+  expected_rates_select = expected_rates |> filter(category %in% category_select &
+                                           tissue == tissue_select) |>
     left_join(older_individuals, by = c("tissue", "sampleID", "category")) |>
     filter(donor %in% older_individuals$donor)
 

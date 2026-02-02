@@ -136,14 +136,14 @@ plot_figures = function(driver_sites, y_label, metadata = metadata) {
   driver_rates = calc_exp_muts(expected_rates, driver_sites, metadata= metadata, ratios = ratios, ncells = ncells)
 
   high_estimate = ggplot(driver_rates,
-               aes(x = age, y = mle*13)) +
+                         aes(x = age, y = mle*13)) +
     geom_pointrange(aes(ymin = cilow*13, ymax = cihigh*13), color = blood_colors)  +
     labs(y = y_label, x = "Age (years)", subtitle = "1.3 million HSCs") +
     theme_cowplot()
 
 
   mid_estimate = ggplot(driver_rates,
-                aes(x = age, y = mle)) +
+                        aes(x = age, y = mle)) +
     geom_pointrange(aes(ymin = cilow, ymax = cihigh), color = blood_colors)  +
     labs(y = y_label, x = "Age (years)", subtitle = "100,000 HSCs") +
     theme_cowplot()
@@ -176,7 +176,7 @@ driver_rates_extension = calc_exp_muts(expected_rates, DNMT3A_R882H_hotspot, met
 
 
 age_shift_figure = list(`mutation induction rate` = driver_rates,
-                             `VAF detection limit CH` = driver_rates_extension) |>
+                        `VAF detection limit CH` = driver_rates_extension) |>
   rbindlist(idcol = "type") |>
   ggplot(aes(x = age, y = mle)) +
   geom_pointrange(aes(ymin = cilow, ymax = cihigh, color = type))  +
@@ -189,8 +189,8 @@ age_shift_figure
 figure_S9A = age_shift_figure
 
 # figure of DNMT3A driver mutations across age
-DNMT3A_driver_muts = CH_bDM[gene_name == "DNMT3A" & driver == TRUE , .N, c("gene_name", "mut_type", "aachange", "position", "driver")]
-DNMT3A_driver_plot = plot_figures(DNMT3A_driver_muts, "Number of cells with\n DNMT3A any mutation", metadata)
+DNMT3A_drivers = CH_bDM[gene_name == "DNMT3A" & driver == TRUE , .N, c("gene_name", "mut_type", "aachange", "position", "driver")]
+DNMT3A_driver_plot = plot_figures(DNMT3A_drivers, "Number of cells with\n DNMT3A any mutation", metadata)
 ggsave("plots/blood/masha_exploration/DNMT3A_driver_plot.png", DNMT3A_driver_plot, width = 5, height = 4.5, bg = "white")
 
 
@@ -220,8 +220,8 @@ ggsave("plots/blood/masha_exploration/TP53_all_plot.png", TP53_all_plot, width =
 
 # expected mutation rate for the average of sm
 driver_rates = calc_exp_muts(expected_rates, DNMT3A_drivers, metadata= metadata, ratios = ratios, ncells = ncells) |>
-    filter(age > 0 ) |>
-    summarize(across(c(mle, cilow, cihigh, age), mean))
+  filter(age > 0 ) |>
+  summarize(across(c(mle, cilow, cihigh, age), mean))
 
 
 # make the general figure:
@@ -234,7 +234,7 @@ F5C = wrap_plots(plots[c(1,3,5)], byrow = FALSE) |> prep_plot(label = "C")
 
 # get all the driver mutations for the watson figure:
 watson_variants = c("R882C", "R729W", "R326C", "R320*", "R882H", "R736H",
-     "Y735C", "R736C", "W860R", "R771*", "R598*", "P904L")
+                    "Y735C", "R736C", "W860R", "R771*", "R598*", "P904L")
 
 DNMT3A_watson_drivers = CH_bDM[gene_name == "DNMT3A" & driver == TRUE  &
                                  aachange %in% watson_variants, .N, c("gene_name", "mut_type", "aachange", "position", "driver")]
@@ -245,11 +245,11 @@ mutation_list = list(
   DNMT3A_watson_drivers = calc_exp_muts(expected_rates, DNMT3A_watson_drivers, metadata, ratios, ncells)) |>
   rbindlist(idcol = "name") |>
   mutate(name = factor(name, levels = c("DNMT3A_drivers", "DNMT3A_R882H", "DNMT3A_watson_drivers")),
-        prob_mle = get_prob_mutated_N(risk = mle/ncells ,ncells = ncells, N =  1),
-        prob_cilow = get_prob_mutated_N(risk = (mle)/ncells ,ncells = ncells/4, N =  1),
-        prob_cihigh = get_prob_mutated_N(risk = (mle)/ncells ,ncells = ncells*4, N =  1),
-        prob_mut_5 = get_prob_mutated_N(risk = mle/ncells ,ncells = ncells, N =  5),
-        prob_mut_10 = get_prob_mutated_N(risk = mle/ncells ,ncells = ncells, N = 13))
+         prob_mle = get_prob_mutated_N(risk = mle/ncells ,ncells = ncells, N =  1),
+         prob_cilow = get_prob_mutated_N(risk = (mle)/ncells ,ncells = ncells/4, N =  1),
+         prob_cihigh = get_prob_mutated_N(risk = (mle)/ncells ,ncells = ncells*4, N =  1),
+         prob_mut_5 = get_prob_mutated_N(risk = mle/ncells ,ncells = ncells, N =  5),
+         prob_mut_10 = get_prob_mutated_N(risk = mle/ncells ,ncells = ncells, N = 13))
 # also needed would be the list of all the variants in the Watson analysis reported to be mutated
 
 # Supplementary Figure: DNMT3A, TET2 and TP53 mutations in CH
@@ -293,9 +293,10 @@ saveRDS(F5D, "manuscript/figure_panels/figure_5/figure_5D.rds")
 
 # for supplementary figure 9b, add the ukbiobank data
 DNMT3A_age = fread("raw_data/UKBiobank/UKB_age_frequencies_DNMT3A.tsv")
-figure_S9B = DNMT3A_age |>
+DNMT3A_age_fraction = DNMT3A_age |>
   mutate(fraction_DNMT3A_R882H = `R/H` / Individuals) |>
-  filter(Individuals >= 2000) |>
+  filter(Individuals >= 2000)
+figure_S9B = DNMT3A_age_fraction |>
   ggplot(aes(x = Age, y = fraction_DNMT3A_R882H)) +
   geom_pointpath() +
   theme_cowplot() +
@@ -309,3 +310,29 @@ figure_S9B = prep_plot(figure_S9B, "B")
 figure_S9 = figure_S9A + figure_S9B + plot_layout(widths = c(1.5, 1))
 ggsave("manuscript/Supplementary_Figures/Figure_S9/Figure_S9.png", figure_S9, width = 12, height = 5)
 ggsave("manuscript/Supplementary_Figures/Figure_S9/Figure_S9.pdf", figure_S9, width = 12, height = 5)
+
+# numbers for supplementary figures:
+df_DNMT3A_R882H = calc_exp_muts(expected_rates, DNMT3A_R882H_hotspot, metadata, ratios, ncells)
+model_HSCs = lm(mle ~ age, df_DNMT3A_R882H)
+summary(model_HSCs)
+prediction_DNMT3A_HSCs = predict(l_model, data.frame(age = 60))
+coef = coefficients(model_HSCs)
+coef[1] + (coef[2] * 60)
+
+# check the effect of setting the intercept at 0
+model_HSCs_0 = lm(mle ~ 0 + age , df_DNMT3A_R882H)
+predict(model_HSCs_0, data.frame(age = 60))
+coef = coefficients(model_HSCs_0)
+coef[1] * 60
+
+# model the rate for DNMT3A R882H mutations
+DNMT3A_age_fraction
+model_CH = lm(fraction_DNMT3A_R882H ~ Age, DNMT3A_age_fraction)
+CH_DNMT3A = predict(model_CH, data.frame(Age = 60))
+coef = coefficients(model_CH)
+coef
+coef[1] * 60
+
+# results for manuscript supplementary figure 9:
+1/prediction_DNMT3A_HSCs
+1/CH_DNMT3A

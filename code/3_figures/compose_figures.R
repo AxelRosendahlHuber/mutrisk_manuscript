@@ -75,7 +75,7 @@ figure_4 = figure_4_top / figure_4_middle / figure_4_bottom# + plot_layout(heigh
 ggsave("manuscript/Figure_4/figure_4.png", figure_4, width = 18, height = 11)
 ggsave("manuscript/Figure_4/figure_4.pdf", figure_4, width = 18, height = 11)
 
-  # # earlier original figure 4
+# # earlier original figure 4
 # list_figure_4AB = readRDS("manuscript/figure_panels/figure_4/figures_AB.rds")
 # figure_4A = list_figure_4AB[[1]] |> prep_plot(label = 'A', all_margin = mg)
 # figure_4B = list_figure_4AB[[2]]  |> prep_plot(label = 'B', all_margin = mg)

@@ -37,11 +37,11 @@ ratios = rbindlist(ratio_list, idcol = "tissue", use.names = TRUE)
 gene_of_interest = "TP53"
 
 # Make a barplot showing the probabilitites for TP53 (poster usage)
-prob_barplot_lung = make_gene_barplot(boostdm, ratios, gene_of_interest = "TP53", tissue_select = "lung", category_select = "non-smoker",
+prob_barplot_lung = make_gene_barplot(boostdm, ratios, expected_rates,  gene_of_interest = "TP53", tissue_select = "lung", category_select = "non-smoker",
                                       individual = "PD34215",cell_probabilities = TRUE) + labs(title = "TP53", subtitle = "lung", y = NULL)
-prob_barplot_blood = make_gene_barplot(boostdm, ratios, gene_of_interest = "TP53", tissue_select = "blood",
+prob_barplot_blood = make_gene_barplot(boostdm, ratios, expected_rates,  gene_of_interest = "TP53", tissue_select = "blood",
                                        individual = "KX008", cell_probabilities = TRUE) + labs(title = "TP53", subtitle = "blood", y = NULL)
-prob_barplot_colon = make_gene_barplot(boostdm, ratios, gene_of_interest = "TP53", tissue_select = "colon",
+prob_barplot_colon = make_gene_barplot(boostdm, ratios, expected_rates, gene_of_interest = "TP53", tissue_select = "colon",
                                        individual = "O340", cell_probabilities = TRUE) + labs(title = "TP53", subtitle = "colon")
 F1B = wrap_plots(prob_barplot_colon, prob_barplot_lung, prob_barplot_blood, ncol = 3, guides = "collect") &
   theme(plot.subtitle = element_text(hjust = 0.5))
@@ -69,14 +69,13 @@ cpg_muts = expected_rates |> left_join(triplet_match_substmodel) |>
   summarize(mean_rate = mean(sum_rate))
 print(cpg_muts$mean_rate[1]/cpg_muts$mean_rate[2])
 
-
 # Make a barplot indicating the number of mutations across TP53 across the three tissues (colon, lung, blood)
-barplot_colon = make_gene_barplot(boostdm, ratios, gene_of_interest = "TP53", tissue_select = "colon",
+barplot_colon = make_gene_barplot(boostdm, ratios, expected_rates, gene_of_interest = "TP53", tissue_select = "colon",
                                   tissue_name = "Colon", cell_probabilities = FALSE) + labs(y = NULL, x = NULL)
-barplot_lung = make_gene_barplot(boostdm, ratios, gene_of_interest = "TP53", tissue_select = "lung",
+barplot_lung = make_gene_barplot(boostdm, ratios, expected_rates, gene_of_interest = "TP53", tissue_select = "lung",
                                  tissue_name = "Lung", category_select = "non-smoker",
                                  cell_probabilities = FALSE) + labs(x = NULL)
-barplot_blood = make_gene_barplot(boostdm, ratios, gene_of_interest = "TP53", tissue_select = "blood",
+barplot_blood = make_gene_barplot(boostdm, ratios, expected_rates, gene_of_interest = "TP53", tissue_select = "blood",
                                   tissue_name = "Blood", cell_probabilities = FALSE) + labs(y = NULL)
 F3A = wrap_plots(barplot_colon, barplot_lung, barplot_blood, ncol = 1, guides = "collect")
 saveRDS(F3A, "manuscript/figure_panels/figure_3/figure_3A.rds")
@@ -88,7 +87,7 @@ plot_list = list()
 for (i in 1:nrow(tissue_categories)) {
 
   tissue_name = paste(as.character(tissue_categories[i]), collapse = "\n")
-  plot_list[[i]] = make_gene_barplot(boostdm, ratios, gene_of_interest = "TP53",
+  plot_list[[i]] = make_gene_barplot(boostdm, ratios, expected_rates, gene_of_interest = "TP53",
                                      tissue_select = tissue_categories$tissue[i],
                                      category_select = tissue_categories$category[i],
                                     tissue_name = tissue_name, cell_probabilities = TRUE) +
@@ -109,7 +108,7 @@ APC_colon_normal = make_gene_barplot(boostdm, ratios, gene_of_interest = "APC",
                                                       text_y = elem_list_text(colour = c("white"), face = "bold")), axes = "all",
                      remove_labels = "x")
 
-colon_normal = make_gene_barplot(boostdm, ratios, gene_of_interest = "TP53",
+colon_normal = make_gene_barplot(boostdm, ratios,expected_rates, gene_of_interest = "TP53",
                                  tissue_select = "colon", category_select = "normal", cell_probabilities = FALSE) +
   ggh4x::facet_grid2(driver ~ ., strip = strip_themed(background_y = elem_list_rect(fill = c("#C03830", "#707071")),
                                                       text_y = elem_list_text(colour = c("white"), face = "bold")), axes = "all",
@@ -117,7 +116,7 @@ colon_normal = make_gene_barplot(boostdm, ratios, gene_of_interest = "TP53",
 ggsave("plots/colon/TP53_driver_non-driver.png", colon_normal, width = 10, height = 4.5, bg = "white")
 
 # APC colon barplot
-APC_colon_normal = make_gene_barplot(boostdm, ratios, gene_of_interest = "APC",
+APC_colon_normal = make_gene_barplot(boostdm, ratios, expected_rates, gene_of_interest = "APC",
                                  tissue_select = "colon", category_select = "normal", cell_probabilities = FALSE) +
   ggh4x::facet_grid2(driver ~ ., strip = strip_themed(background_y = elem_list_rect(fill = c("#C03830", "#707071")),
                                                       text_y = elem_list_text(colour = c("white"), face = "bold")), axes = "all",
@@ -133,7 +132,7 @@ APC_colon_normal = APC_colon_normal + geom_point(data = df_dots, aes(x = positio
 ggsave("plots/colon/APC_driver_non-driver.png", APC_colon_normal, width = 12, height = 5, bg = "white")
 
 # Figure 4A
-F4A1 = make_gene_barplot(boostdm, ratios, gene_of_interest = "APC", tissue_select = "colon", cell_probabilities = FALSE) +
+F4A1 = make_gene_barplot(boostdm, ratios, expected_rates,  gene_of_interest = "APC", tissue_select = "colon", cell_probabilities = FALSE) +
   scale_y_continuous(breaks = extended_breaks(4), expand = expansion(mult = c(0, 0.1))) +
   scale_x_continuous(expand = c(0,0)) +
   theme(legend.position = "none",
@@ -141,7 +140,7 @@ F4A1 = make_gene_barplot(boostdm, ratios, gene_of_interest = "APC", tissue_selec
         legend.title = element_text(size = rel(0.8)),
         legend.key.size = unit(0.8, "lines"), legend.background = element_blank())
 
-F4A2 = make_gene_barplot(boostdm, ratios, gene_of_interest = "KRAS", tissue_select = "colon", cell_probabilities = FALSE) +
+F4A2 = make_gene_barplot(boostdm, ratios, expected_rates, gene_of_interest = "KRAS", tissue_select = "colon", cell_probabilities = FALSE) +
   scale_y_continuous(breaks = extended_breaks(4), expand = expansion(mult = c(0, 0.1))) +
   theme(legend.position = "inside", legend.position.inside = c(0.9, 1),
         legend.text = element_text(size = rel(0.8)),
@@ -235,3 +234,4 @@ F3C
 F3C_bottom = wrap_plots(tissue_plots[-1], widths = c(2.8, 1))
 F3C = tissue_plots[[1]] / F3C_bottom
 F3C
+
