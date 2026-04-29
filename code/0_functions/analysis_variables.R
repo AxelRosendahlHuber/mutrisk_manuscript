@@ -8,7 +8,7 @@ library(mutrisk)
 #source("~/Nextcloud/Documents/mutrisk_manuscript/code/0_functions/plot_mut_prob.R") #TODO change this line
 
 # load R functions
-r_funcs = list.files('~/Nextcloud/Documents/mutrisk_manuscript/code/0_functions/', full.names = T, include.dirs = FALSE, recursive = TRUE, pattern = ".R$")
+r_funcs = list.files('code/0_functions/', full.names = T, include.dirs = FALSE, recursive = TRUE, pattern = ".R$")
 r_funcs = r_funcs[!grepl("analysis_variables.R", r_funcs)]
 for (file in r_funcs) {
   print(file)

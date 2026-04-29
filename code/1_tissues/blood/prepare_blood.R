@@ -7,6 +7,7 @@ library(cowplot)
 library(wintr)
 library(mutrisk)
 library(R.utils)
+library(GenomeInfoDb)
 
 # [input]
 tissue = "blood"
@@ -22,7 +23,7 @@ cell_muts = lapply(sample_mut_list, fread) |>
   rbindlist(idcol = "donor") |>
   mutate(category = "normal")
 
-# proof that KX007 and AX001 have the same mutation data
+# Check that samples KX007 and AX001 have the same mutation data
 x = cell_muts |> filter(donor == "KX007") |> dplyr::select(sampleID, chr, pos, ref, alt)
 y = cell_muts |> filter(donor == "AX001") |> dplyr::select(sampleID, chr, pos, ref, alt)
 
@@ -32,7 +33,7 @@ metadata = fread("raw_data/blood/Summary_cut.csv") |>
   mutate(category = "normal")
 
 metadata = metadata |>
-  filter(donor != "KX007") |>
+  filter(donor != "KX007") |> # Since either KX007 and AX001 have the same mutations
   mutate(vaf_estimate = 0.5, # all samples are coming from clonal cultures,
          sensitivity = get_sensitivity(coverage = mean_depth, vaf = vaf_estimate)) |>
   dplyr::rename(coverage = mean_depth)
@@ -71,7 +72,11 @@ fwrite(metadata_filtered, paste0(outdir, tissue, "_metadata.tsv"))
 
 # make list for signatures used for re-fitting:
 
-mitchell_2025_sigs = fread("raw_data/blood/mutational_signatures_analysis/SBS_signatures_profiles.txt") |>
+
+# signatures downloaded from:
+#https://github.com/emily-mitchell/chemotherapy/ > 5_Mutational_signature_analysis >
+# Current link: https://github.com/emily-mitchell/chemotherapy//blob/main/5_Mutational_signature_analysis/mutational_signatures_analysis/SBS_signatures_profiles.txt
+mitchell_2025_sigs = fread("raw_data/blood/5_Mutational_signature_analysis/mutational_signatures_analysis/SBS_signatures_profiles.txt") |>
   column_to_rownames("Type")
 
 mitchell_2025_sigs = mitchell_2025_sigs[mutrisk:::TRIPLETS_96, ]

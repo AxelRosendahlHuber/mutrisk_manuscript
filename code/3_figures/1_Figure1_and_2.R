@@ -7,6 +7,8 @@ library(ggh4x)
 library(mutrisk)
 source("code/0_functions/analysis_variables.R")
 
+set.seed(12345)
+
 # load metadata
 md_files = list.files("processed_data/", recursive = TRUE, pattern = "_metadata",
                       full.names = TRUE)

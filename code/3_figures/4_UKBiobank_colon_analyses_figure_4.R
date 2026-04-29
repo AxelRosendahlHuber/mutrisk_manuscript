@@ -6,9 +6,11 @@ library(mutrisk)
 source("code/0_functions/analysis_variables.R")
 
 # internal function
-## UKBiobank analyses
+
 # load the bowel cancer data:
 tissue = "colon"
+
+## UKBiobank analyses - UKBbiobank data needs to be obtained
 crc_freq = fread("raw_data/UKBiobank/colorectal_cancer_frequency_UKB.csv")
 colors = tissue_colors[[tissue]]
 
