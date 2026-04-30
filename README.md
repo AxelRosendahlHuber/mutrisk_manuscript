@@ -10,13 +10,13 @@ Open `mutrisk.manuscript.Rrpoj` to start
 
 ``` r
 # if not installed, install devtools
-if (!"devtools" %in% rownames(installed.packages())) {
-  install.packages("devtools")
+if (!"pak" %in% rownames(installed.packages())) {
+  install.packages("pak")
 }
 
-devtools::install_github("AxelRosendahlHuber/wintr")
-devtools::install_github("AxelRosendahlHuber/mutrisk")
-devtools::install_github("gersteinlab/siglasso")
+pak::pak("AxelRosendahlHuber/wintr")
+pak::pak("AxelRosendahlHuber/mutrisk")
+pak::pak("gersteinlab/siglasso")
 
 # install all other packages required: 
 install.packages("renv")

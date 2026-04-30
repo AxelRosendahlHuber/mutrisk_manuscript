@@ -19,8 +19,7 @@ clone_files = clone_files[!grepl("textClipping", clone_files)]
 for (file in clone_files) {
 
   load(file)
-
-  name = gsub("filtering_output_", "", strsplit(file, "/")[[1]][5])
+  name = gsub("annotated_mut_set_|_._.._standard_rho01.gz", "", basename(file))
   print(name)
 
   mut_ids = filtered_muts$COMB_mats.tree.build$Genotype_bin == 1

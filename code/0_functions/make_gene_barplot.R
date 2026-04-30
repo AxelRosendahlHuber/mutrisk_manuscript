@@ -32,8 +32,8 @@ make_gene_barplot = function(boostdm, ratios, expected_rates,  gene_of_interest,
 
   # way to make the plot extend both upper and lower axes
   pl = ggplot(expected_gene_muts_label,
-              aes(x = position, y = mle, fill = type)) +
-    geom_col() +
+              aes(x = position, y = mle)) +
+    geom_col(aes(fill = type)) +
     scale_fill_manual(values = mutrisk::COLORS6) +
     theme_cowplot() +
     scale_y_continuous(expand = expansion(mult = c(0, 0.1))) +
