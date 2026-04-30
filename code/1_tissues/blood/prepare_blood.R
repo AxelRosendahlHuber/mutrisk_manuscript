@@ -49,6 +49,47 @@ fread("raw_data/blood/Summary_cut.csv") |>
   pull(donor) |>
   table()
 
+# plot the variant allele fraction for all donors and for one donor specific curves
+# furhtermore make two plots on the VAF of the donors of this data
+VAF_per_sample = cell_muts |>
+  group_by(donor, sampleID) |>
+  summarize(mean_vaf = mean(vaf)) |>
+  ggplot(aes(x = donor, y = mean_vaf)) +
+  geom_hline(yintercept = 0.5, linetype = "dashed") +
+  ggbeeswarm::geom_quasirandom() +
+  theme_cowplot() +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1)) +
+  scale_y_continuous(limits = c(0, 0.75),
+                     breaks = scales::extended_breaks(4)) +
+  labs(y = "average VAF per sample")
+
+set.seed(10)
+AX001_plot = cell_muts |>
+  filter(donor == "AX001") |>
+  filter(sampleID %in% base::sample(unique(sampleID), 40)) |>
+  mutate(y = as.numeric(as.factor(sampleID))) |>
+  group_by(y) |>
+  ggplot(aes(x = vaf, y = y, group = y)) +
+  ggridges::geom_density_ridges() +
+  geom_vline(xintercept = 0.5, linetype = "dashed") +
+  theme_cowplot() +
+  labs(title = "40 clones from donor SX001", y = "HSC/MPP clones", x = "VAF of individiual mutations across sample")
+
+set.seed(10)
+SX001_plot = cell_muts |>
+  filter(donor == "SX001") |>
+  filter(sampleID %in% base::sample(unique(sampleID), 40)) |>
+  mutate(y = as.numeric(as.factor(sampleID))) |>
+  group_by(y) |>
+  ggplot(aes(x = vaf, y = y, group = y)) +
+  ggridges::geom_density_ridges() +
+  geom_vline(xintercept = 0.5, linetype = "dashed") +
+  theme_cowplot() +
+  labs(title = "40 clones from donor SX001", y = "HSC/MPP clones", x = "VAF of individiual mutations across sample")
+
+supplementary_note_plot_blood = VAF_per_sample / (AX001_plot | SX001_plot)
+ggsave("manuscript/Supplementary_notes/Supplementary_Note_X/figure_blood.png", supplementary_note_plot_blood, width = 10, height = 7)
+
 # thus, samples from donor KX007 can be filtered out
 cell_muts = cell_muts |>
   filter(donor != "KX007")  |>
