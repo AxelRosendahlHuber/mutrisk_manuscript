@@ -8,6 +8,7 @@ library(wintr)
 library(mutrisk)
 library(R.utils)
 library(GenomeInfoDb)
+library(plyranges)
 
 # [input]
 tissue = "blood"
@@ -117,7 +118,7 @@ fwrite(metadata_filtered, paste0(outdir, tissue, "_metadata.tsv"))
 # signatures downloaded from:
 #https://github.com/emily-mitchell/chemotherapy/ > 5_Mutational_signature_analysis >
 # Current link: https://github.com/emily-mitchell/chemotherapy//blob/main/5_Mutational_signature_analysis/mutational_signatures_analysis/SBS_signatures_profiles.txt
-mitchell_2025_sigs = fread("raw_data/blood/5_Mutational_signature_analysis/mutational_signatures_analysis/SBS_signatures_profiles.txt") |>
+mitchell_2025_sigs = fread("raw_data/blood/mutational_signatures_analysis/SBS_signatures_profiles.txt") |>
   column_to_rownames("Type")
 
 mitchell_2025_sigs = mitchell_2025_sigs[mutrisk:::TRIPLETS_96, ]
@@ -181,4 +182,3 @@ ratios = lapply(dnds_files, \(x) {
   rbindlist(idcol = "category") |>
   mutate(category = factor(category, levels = levels(metadata$category)))
 fwrite(ratios, file = paste0("processed_data/", tissue, "/", tissue, "_mut_ratios.tsv.gz"))
-
