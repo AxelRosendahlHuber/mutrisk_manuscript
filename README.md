@@ -16,9 +16,23 @@ if (!"pak" %in% rownames(installed.packages())) {
 
 pak::pak("AxelRosendahlHuber/wintr")
 pak::pak("AxelRosendahlHuber/mutrisk")
-pak::pak("gersteinlab/siglasso")
 
 # install all other packages required: 
+options(renv.config.pak.enabled = TRUE) # for faster installation
 install.packages("renv")
 renv::restore()
+```
+
+
+Install MuSical in an environment "python37_musical" using conda or mamba: 
+
+``` bash
+
+mamba create -n python37_musical
+mamba activate python37_musical
+mamba install numpy scipy scikit-learn matplotlib pandas seaborn
+
+# Download musical
+cd  /Path/To/MuSiCal
+pip install ./MuSiCal
 ```
