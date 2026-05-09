@@ -158,7 +158,6 @@ saveRDS(list(F4A1, F4A2), "manuscript/figure_panels/figure_4/figures_AB.rds")
 
 # plot the number of mutations for TP53 as individual points
 dotplot_list = list()
-dotplot_list_nocb = list()
 for (i in 1:nrow(color_df)) {
 
   category_select = color_df$category[i]
@@ -167,7 +166,7 @@ for (i in 1:nrow(color_df)) {
   # make dotplots with the individual variation:
   dotplot_list[[i]] = merge_mutrisk_drivers(boostdm, ratios, expected_rates, gene_of_interest = "TP53",
                                             tissue_select = tissue_select, category_select = category_select,
-                                    individual = "all")[[1]] |>
+                                            filter_age = FALSE, individual = "all")[[1]] |>
     group_by(donor, driver) |>
     summarize(across(c(mle, cilow, cihigh), sum)) |>
     mutate(tissue = tissue_select, category = category_select)
@@ -185,13 +184,27 @@ dotplot_df |>
   summarize(across(c(mle, cilow, cihigh), mean), groups = "drop") |>
   summarize(min = min(mle), max = max(mle), mean = mean(mle))
 
-# Manuscript numbers: colon drivers Lung TP53
-dotplot_df |>
+# Manuscript numbers: colon drivers Lung TP53 |>
+dotplot_df  |>
   filter(tissue == "lung" & driver == "driver") |>
-  left_join(metadata) |> filter(age > 35) |>
+  left_join(metadata) |>
+  filter(age > 35) |>
   group_by(donor) |>
   summarize(across(c(mle, cilow, cihigh), mean), groups = "drop") |>
   summarize(min = min(mle), max = max(mle), mean = mean(mle))
+
+dotplot_df  |>
+  filter(tissue == "lung" & driver == "driver") |>
+  filter(category == "non-smoker") |>
+  left_join(metadata) |>
+  filter(age > 35) |>
+  group_by(donor) |>
+  summarize(across(c(mle, cilow, cihigh), mean), groups = "drop") |>
+  summarize(min = min(mle), max = max(mle), mean = mean(mle))
+
+
+
+
 
 dotplot_df |>
   filter(tissue == "lung" & driver == "driver") |>

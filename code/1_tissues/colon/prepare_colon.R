@@ -93,10 +93,11 @@ for (name in names(total_depth_files)) {
     dplyr::select(sampleID, chr, pos, ref, alt, VAF)
 }
 
-cell_muts = rbindlist(list_patient_muts)
+IBD_normal_muts = rbindlist(list_patient_muts)
 
-# get VAFS:
-vaf_estimates_normal_IBD = cell_muts |>
+
+# get underlying VAFs of the samples:
+vaf_estimates_normal_IBD = IBD_normal_muts |>
   group_by(sampleID) |>
   dplyr::summarize(vaf_estimate = estimate_vaf(VAF))
 
@@ -106,8 +107,53 @@ IBD_ids = metadata_IBD_normal |>
   dplyr::select(sampleID, category) |>
   distinct()
 
-WT_muts = left_join(cell_muts, IBD_ids, by = "sampleID") |>
+WT_muts = left_join(IBD_normal_muts, IBD_ids, by = "sampleID") |>
   filter(!is.na(category))
+
+# make a supplementary figure showing the underlying VAF of each part
+VAF_per_sample = WT_muts |>
+  left_join(meta_IBD_normal) |>
+  group_by(donor, sampleID, category) |>
+  summarize(mean_vaf = mean(VAF)) |>
+  ggplot(aes(x = donor, y = mean_vaf)) +
+  geom_hline(yintercept = 0.5, linetype = "dashed") +
+  ggbeeswarm::geom_quasirandom(size = 0.8) +
+  facet_wrap(category ~ ., ncol = 1, scale = "free", space = "free_x") +
+  theme_cowplot() +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1)) +
+  scale_y_continuous(limits = c(0, 0.75),
+                     breaks = scales::extended_breaks(4)) +
+  labs(y = "average VAF per sample")
+
+set.seed(10)
+cell_muts |> pull(donor) |> table()
+PD26988_plot = cell_muts |>
+  filter(donor == "PD26988") |>
+  #filter(sampleID %in% base::sample(unique(sampleID), 40)) |>
+  mutate(y = as.numeric(as.factor(sampleID))) |>
+  group_by(y) |>
+  ggplot(aes(x = VAF, y = y, group = y)) +
+  ggridges::geom_density_ridges() +
+  geom_vline(xintercept = 0.5, linetype = "dashed") +
+  theme_cowplot() +
+  labs(title = "clones from donor PD26988", y = "HSC/MPP clones", x = "VAF of individiual mutations across sample")
+
+PD37453_plot = cell_muts |>
+  filter(donor == "PD37453") |>
+  #  filter(sampleID %in% base::sample(unique(sampleID), 40)) |>
+  mutate(y = as.numeric(as.factor(sampleID))) |>
+  group_by(y) |>
+  ggplot(aes(x = VAF, y = y, group = y)) +
+  ggridges::geom_density_ridges() +
+  geom_vline(xintercept = 0.5, linetype = "dashed") +
+  theme_cowplot() +
+  labs(title = "clones from donor PD37453", y = "HSC/MPP clones", x = "VAF of individiual mutations across sample")
+
+supplementary_note_plot_lung = VAF_per_sample / (PD26988_plot | PD37453_plot)
+ggsave("manuscript/Supplementary_notes/Supplementary_Note_X/figure_lung.png", supplementary_note_plot_lung, width = 10, height = 10)
+
+
+
 
 # load data from POLE POLD1 study (Robinson et al., Nature Genetics 2021, https://doi.org/10.1038/s41588-021-00930-y)
 POL_muts = fread("raw_data/colon/hypermutated/DNAPolymerase_NG_somatic_SBS_ID_combined.txt")
@@ -118,7 +164,7 @@ metadata_crypts = metadata_POL |>
 POLE_POLD1_muts = inner_join(POL_muts, metadata_crypts, by = "sample") |>
   dplyr::rename(sampleID = sample)
 
-cell_muts = rbind(WT_muts |> select(-VAF), POLE_POLD1_muts)
+cell_muts = rbind(WT_muts , POLE_POLD1_muts, fill = TRUE)
 
 # save the metadata for the different samples:
 # PART 2: Modeling of mutation rates for the individual samples

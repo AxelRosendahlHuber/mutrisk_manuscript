@@ -45,11 +45,12 @@ VAF_lung_samples = input_muts |>
   theme(legend.position = "none")
 ggsave("plots/lung/VAF_plot_PD26988.png", VAF_lung_samples, height = 8, width = 4, dpi = 400)
 
-# get VAFS:
+# get the underlying VAFS for each sample:
 vaf_estimates = input_muts |>
   group_by(sampleID, donor) |>
   summarize(vaf_estimate = estimate_vaf(VAF))
-# update the metadata file with the sensitiivity data for the different individuals
+
+# update the metadata file with the sensitivity data for the different individuals
 metadata = metadata |>
   full_join(vaf_estimates) |>
   filter(!is.na(category)) |>
@@ -61,9 +62,51 @@ select_sigs = c("SBS1", "SBS4", "SBS5", "SBS2", "SBS13", "SBS92", "SBS16") # che
 
 # join the mutations with the expected mutation data
 cell_muts = inner_join(input_muts, metadata) |>
-  dplyr::select(sampleID, chr, pos, ref, alt, category, donor) |>
+  dplyr::select(sampleID, chr, pos, ref, alt, category, donor, VAF) |>
   filter(nchar(ref) == 1 & nchar(alt) == 1)
 
+
+# make a supplementary figure showing the underlying VAF of each part
+VAF_per_sample = cell_muts |>
+  group_by(donor, sampleID) |>
+  summarize(mean_vaf = mean(VAF)) |>
+  ggplot(aes(x = donor, y = mean_vaf)) +
+  geom_hline(yintercept = 0.5, linetype = "dashed") +
+  ggbeeswarm::geom_quasirandom(size = 0.8) +
+  theme_cowplot() +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1)) +
+  scale_y_continuous(limits = c(0, 0.75),
+                     breaks = scales::extended_breaks(4)) +
+  labs(y = "average VAF per sample")
+
+set.seed(10)
+cell_muts |> pull(donor) |> table()
+PD26988_plot = cell_muts |>
+  filter(donor == "PD26988") |>
+  #filter(sampleID %in% base::sample(unique(sampleID), 40)) |>
+  mutate(y = as.numeric(as.factor(sampleID))) |>
+  group_by(y) |>
+  ggplot(aes(x = VAF, y = y, group = y)) +
+  ggridges::geom_density_ridges() +
+  geom_vline(xintercept = 0.5, linetype = "dashed") +
+  theme_cowplot() +
+  labs(title = "clones from donor PD26988", y = "HSC/MPP clones", x = "VAF of individiual mutations across sample")
+
+PD37453_plot = cell_muts |>
+  filter(donor == "PD37453") |>
+#  filter(sampleID %in% base::sample(unique(sampleID), 40)) |>
+  mutate(y = as.numeric(as.factor(sampleID))) |>
+  group_by(y) |>
+  ggplot(aes(x = VAF, y = y, group = y)) +
+  ggridges::geom_density_ridges() +
+  geom_vline(xintercept = 0.5, linetype = "dashed") +
+  theme_cowplot() +
+  labs(title = "clones from donor PD37453", y = "HSC/MPP clones", x = "VAF of individiual mutations across sample")
+
+supplementary_note_plot_lung = VAF_per_sample / (PD26988_plot | PD37453_plot)
+ggsave("manuscript/Supplementary_notes/Supplementary_Note_X/figure_lung.png", supplementary_note_plot_lung, width = 10, height = 10)
+
+# calculate the estimated coverage for each sample
 list_results = list()
 for (i in unique(metadata$category)) {
   list_results[[i]] = effect_coverage_vaf(cell_muts |> filter(category %in% i),
