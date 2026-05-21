@@ -1,10 +1,7 @@
 ### Exome-wide analyses:
 # 1. get the exome-wide mutation rate estimates across the different cohort
 # 2. get the exome-wide mutation "saturation" plots across the genome
-library(data.table)
-library(tidyverse)
 library(ggh4x)
-library(mutrisk)
 source("code/0_functions/analysis_variables.R")
 set.seed(1234)
 

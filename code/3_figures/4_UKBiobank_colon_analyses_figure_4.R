@@ -1,8 +1,5 @@
 # Script focusing on the UKbiobank analyses
 library(GenomicRanges)
-library(rtracklayer)
-library(cowplot)
-library(mutrisk)
 source("code/0_functions/analysis_variables.R")
 
 # internal function

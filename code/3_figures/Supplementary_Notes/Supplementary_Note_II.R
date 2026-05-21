@@ -1,8 +1,6 @@
 # Supplementary Note III Figures
 library(GenomicRanges)
 library(rtracklayer)
-library(cowplot)
-library(mutrisk)
 library(ggh4x)
 source("code/0_functions/analysis_variables.R")
 

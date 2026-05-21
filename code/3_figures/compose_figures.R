@@ -1,5 +1,3 @@
-library(patchwork)
-library(tidyverse)
 library(figpatch)
 source("code/0_functions/analysis_variables.R")
 

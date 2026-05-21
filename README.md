@@ -14,8 +14,9 @@ if (!"pak" %in% rownames(installed.packages())) {
   install.packages("pak")
 }
 
-pak::pak("AxelRosendahlHuber/wintr")
-pak::pak("AxelRosendahlHuber/mutrisk")
+remotes::install_github("im3sanger/dndscv")
+remotes::install_github("AxelRosendahlHuber/wintr")
+remotes::install_github("AxelRosendahlHuber/mutrisk")
 
 # install all other packages required: 
 options(renv.config.pak.enabled = TRUE) # for faster installation

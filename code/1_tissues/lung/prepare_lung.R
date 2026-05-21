@@ -5,9 +5,7 @@
 # at the moment, signature refitting is done inside the process_mutations function
 library(dndscv)
 library(MutationalPatterns)
-library(wintr)
 library(readxl)
-library(mutrisk)
 source("code/0_functions/analysis_variables.R")
 
 # load the dndscv RefCDS
@@ -121,7 +119,7 @@ ggsave(paste0("manuscript/Supplementary_notes/Supplementary_Note_I/", tissue, "_
 
 # save the data:
 fwrite(metadata, paste0(outdir, tissue, "_metadata.tsv"))
-fwrite(cell_muts, file = paste0("processed_data/", tissue, "/", tissue, "_cell_muts.tsv"))
+fwrite(cell_muts, file = paste0("processed_data/", tissue, "/", tissue, "_cell_muts.tsv.gz"))
 
 output_path = paste0("processed_data/", tissue, "/")
 if (!dir.exists(output_path)) {dir.create(output_path)}
@@ -153,10 +151,10 @@ sig_donor_rates = rbindlist(rates, use.names = TRUE, fill = TRUE) |>
 fwrite(sig_donor_rates, file = paste0("processed_data/", tissue, "/", tissue, "_sig_donor_rates.tsv.gz"))
 
 # load the mutation rates
-mrates_files = list.files(paste0("processed_data/", tissue), pattern = "_patient_rates.tsv.gz", full.names = TRUE, recursive = TRUE)
+mrates_files = list.files(paste0("processed_data/", tissue), pattern = "rate_per_sample.tsv.gz", full.names = TRUE, recursive = TRUE)
 mrates_files = mrates_files[!grepl("sig", mrates_files)] # exclude the signature-specific variants
 rates = lapply(mrates_files, fread)
-names(rates) = gsub("_patient_rates.tsv.gz", "", basename(mrates_files))
+names(rates) = gsub("sig_rate_per_sample.tsv.gz", "", basename(mrates_files))
 expected_rates = rbindlist(rates) |>
   select(-sensitivity, -coverage) |>
   mutate(category = factor(category, levels = levels(metadata$category)))  |>

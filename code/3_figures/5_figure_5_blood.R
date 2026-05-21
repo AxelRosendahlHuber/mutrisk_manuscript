@@ -1,6 +1,4 @@
 # Figure 5 scripts
-library(patchwork)
-library(cowplot)
 library(geomtextpath)
 library(ggpubr)
 library(gridExtra)
@@ -348,3 +346,4 @@ coef[1] * 60
 # results for manuscript supplementary figure 9:
 1/prediction_DNMT3A_HSCs
 1/CH_DNMT3A
+

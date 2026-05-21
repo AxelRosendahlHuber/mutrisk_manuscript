@@ -1,4 +1,5 @@
 # Supplementary Note 3 Figure A
+source("code/0_functions/analysis_variables.R")
 
 # model a population of cells which can grow and divide
 # function to model expansions (grow a cell over a specific time interval)

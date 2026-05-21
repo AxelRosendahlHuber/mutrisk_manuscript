@@ -2,14 +2,10 @@
 # Used to get an overview of the input data.
 # update on the script. From now on using the following information:
 # Data on Colon, Blood, Skin and Lung tissue
-library(data.table)
 library(readxl)
 library(TxDb.Hsapiens.UCSC.hg19.knownGene)
-library(patchwork)
 library(ggpp)
 library(ggh4x)
-library(tidyverse)
-library(cowplot)
 library(plyranges)
 source("code/0_functions/analysis_variables.R")
 

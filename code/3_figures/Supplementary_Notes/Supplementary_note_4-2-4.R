@@ -1,9 +1,7 @@
 # these functions are to model HSPC expansion directly as a population instead of different lineages
-library(data.table)
-library(tidyverse)
-library(scales)
 library(progress)
-library(cowplot)
+source("code/0_functions/analysis_variables.R")
+
 
 # function to model expansions (grow a cell over a specific time interval)
 grow_pop = function(pop, division_rate, dt, s = 1 ) {

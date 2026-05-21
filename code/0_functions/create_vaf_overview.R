@@ -48,18 +48,18 @@ create_vaf_overview = function(cell_muts, sample_names) {
 
 }
 
-
-
-SX001_plot = cell_muts |>
-  filter(donor == "SX001") |>
-  filter(sampleID %in% base::sample(unique(sampleID), 40)) |>
-  mutate(y = as.numeric(as.factor(sampleID))) |>
-  group_by(y) |>
-  ggplot(aes(x = vaf, y = y, group = y)) +
-  ggridges::geom_density_ridges() +
-  geom_vline(xintercept = 0.5, linetype = "dashed") +
-  theme_cowplot() +
-  labs(title = "40 clones from donor AX001", y = "HSC/MPP clones", x = "VAF of individiual mutations across sample")
-
-supplementary_note_plot_blood = VAF_per_sample / (AX001_plot | SX001_plot)
-ggsave("manuscript/Supplementary_notes/Supplementary_Note_X/figure_blood.png", supplementary_note_plot_blood, width = 10, height = 10)
+#
+#
+# SX001_plot = cell_muts |>
+#   filter(donor == "SX001") |>
+#   filter(sampleID %in% base::sample(unique(sampleID), 40)) |>
+#   mutate(y = as.numeric(as.factor(sampleID))) |>
+#   group_by(y) |>
+#   ggplot(aes(x = vaf, y = y, group = y)) +
+#   ggridges::geom_density_ridges() +
+#   geom_vline(xintercept = 0.5, linetype = "dashed") +
+#   theme_cowplot() +
+#   labs(title = "40 clones from donor AX001", y = "HSC/MPP clones", x = "VAF of individiual mutations across sample")
+#
+# supplementary_note_plot_blood = VAF_per_sample / (AX001_plot | SX001_plot)
+# ggsave("manuscript/Supplementary_notes/Supplementary_Note_X/figure_blood.png", supplementary_note_plot_blood, width = 10, height = 10)

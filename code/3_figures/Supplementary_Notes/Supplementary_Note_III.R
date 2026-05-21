@@ -1,8 +1,6 @@
 # Colon Figure 2 script
 library(GenomicRanges)
 library(rtracklayer)
-library(cowplot)
-library(mutrisk)
 source("code/0_functions/analysis_variables.R")
 
 tissue = "colon"

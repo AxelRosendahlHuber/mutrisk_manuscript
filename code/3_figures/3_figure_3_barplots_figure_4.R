@@ -1,15 +1,10 @@
 # Script to produce figure 3, and the barplots indicating mutation accumulatoin in figure 4
-library(data.table)
-library(tidyverse)
-library(cowplot)
 library(MutationalPatterns)
-library(patchwork)
 library(ggh4x)
 source("code/0_functions/analysis_variables.R")
 getwd()
 
 # load data sources
-GENIE_data = fread("processed_data/GENIE_17/GENIE_17_genie_tissue_type.txt.gz")
 metadata_files = c("processed_data/blood/blood_metadata.tsv", "processed_data/colon/colon_metadata.tsv",
                    "processed_data/lung/lung_metadata.tsv")
 
@@ -92,7 +87,6 @@ tissue_categories = ratios |> select(tissue, category) |> distinct()
 tissue_categories = tissue_categories[-5]
 plot_list = list()
 for (i in 1:nrow(tissue_categories)) {
-
   tissue_name = paste(as.character(tissue_categories[i]), collapse = "\n")
   plot_list[[i]] = make_gene_barplot(boostdm, ratios, expected_rates, gene_of_interest = "TP53",
                                      tissue_select = tissue_categories$tissue[i],
@@ -202,10 +196,6 @@ dotplot_df  |>
   summarize(across(c(mle, cilow, cihigh), mean), groups = "drop") |>
   summarize(min = min(mle), max = max(mle), mean = mean(mle))
 
-
-
-
-
 dotplot_df |>
   filter(tissue == "lung" & driver == "driver") |>
   left_join(metadata) |> filter(age > 35) |>
@@ -222,7 +212,6 @@ dotplot_df |>
   summarize(median(mle))
 
 df_total_muts = dotplot_df |>
-  filter(category != "chemotherapy") |>
   left_join(metadata |> select(-sampleID) |> distinct()) |>
   mutate(category = factor(category, levels = unique(color_df$category)))
 

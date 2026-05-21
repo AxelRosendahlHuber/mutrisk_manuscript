@@ -1,7 +1,6 @@
 # prepare blood
 source("code/0_functions/analysis_variables.R")
 
-
 # [input]
 tissue = "blood"
 ncells = 1e5  # estimate based on the number of HSPCs actively contributing to the blood at any given moment
@@ -33,7 +32,7 @@ metadata = metadata |>
 
 metadata = metadata |>
   dplyr::select(sampleID, age, donor, sensitivity, coverage, category) |>
-  mutate(category = factor(category, levels = c("normal", "chemotherapy")))
+  mutate(category = factor(category, levels = "normal"))
 
 # double check on the metadata of Mitchell et al reveals that there are 361 samples with donor AX001 (match), and 315 samples with donor KX007 (no match)
 fread("raw_data/blood/Summary_cut.csv") |>
@@ -67,8 +66,6 @@ fwrite(cell_muts_filtered, file = paste0("processed_data/", tissue, "/", tissue,
 fwrite(metadata_filtered, paste0(outdir, tissue, "_metadata.tsv"))
 
 # make list for signatures used for re-fitting:
-
-
 # signatures downloaded from:
 #https://github.com/emily-mitchell/chemotherapy/ > 5_Mutational_signature_analysis >
 # Current link: https://github.com/emily-mitchell/chemotherapy//blob/main/5_Mutational_signature_analysis/mutational_signatures_analysis/SBS_signatures_profiles.txt
@@ -99,8 +96,7 @@ for (i in unique(metadata$category)) {
                                      sensitivity_correction =  TRUE)
 }
 
-# summarize the results from the tissue-specific analysis (see following code from and adapt:)
-# summarize the mutation rate
+# summarize the results from the tissue-specific analysis:
 sig_rate_files = list.files(paste0("processed_data/", tissue), pattern = 'sig_rate_per_sample',
                             full.names = TRUE, recursive = TRUE)
 rates = lapply(sig_rate_files, fread)
@@ -114,10 +110,10 @@ sig_donor_rates = rbindlist(rates, use.names = TRUE, fill = TRUE) |>
 fwrite(sig_donor_rates, file = paste0("processed_data/", tissue, "/", tissue, "_sig_donor_rates.tsv.gz"))
 
 # load the mutation rates
-mrates_files = list.files(paste0("processed_data/", tissue), pattern = "_patient_rates.tsv.gz", full.names = TRUE, recursive = TRUE)
+mrates_files = list.files(paste0("processed_data/", tissue), pattern = "_rate_per_sample.tsv.gz", full.names = TRUE, recursive = TRUE)
 mrates_files = mrates_files[!grepl("sig", mrates_files)] # exclude the signature-specific variants
 rates = lapply(mrates_files, fread)
-names(rates) = gsub("_patient_rates.tsv.gz", "", basename(mrates_files))
+names(rates) = gsub("_rate_per_sample.tsv.gz", "", basename(mrates_files))
 expected_rates = rbindlist(rates) |>
   mutate(category = factor(category, levels = levels(metadata$category)))  |>
   inner_join(metadata |> select(-sensitivity, -coverage, -category)) |>

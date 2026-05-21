@@ -1,7 +1,5 @@
-library(tidyverse)
 # supplementary figure 6:
 library(Biostrings)
-library(data.table)
 source("code/0_functions/analysis_variables.R")
 
 # determine the whole-genome trinucleotide rates
@@ -39,7 +37,7 @@ trinuc_counts_all |>
   facet_grid(name ~ . , scales = "free_y")
 
 # get the trinucleotide mutation rates for POLD1 mutations
-colon_muts = fread("processed_data/colon/colon_cell_muts.tsv")
+colon_muts = fread("processed_data/colon/colon_cell_muts.tsv.gz")
 POLD1_muts = colon_muts |>
   filter(category == "POLD1")
 POLD1_muts = get_mut_context(POLD1_muts)

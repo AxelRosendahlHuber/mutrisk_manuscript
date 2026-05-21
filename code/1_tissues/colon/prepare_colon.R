@@ -2,9 +2,6 @@
 # format mutations: cell_muts = 7 columns: sampleID, chr, pos, ref, alt, category, donor
 # format metadata: metadata = sample, age, donor, category
 source("code/0_functions/analysis_variables.R")
-library(wintr)
-library(dndscv)
-library(mutrisk)
 
 tissue = "colon"
 
@@ -71,11 +68,36 @@ for (name in names(total_depth_files)) {
     mutate(vaf =  alt_depth / depth) |>
     filter(alt_depth >= 3 & depth >= 5 & vaf >= 0.05)
 
-  fold_diff = nrow(total_depth_id) / sum(mut_calls$mut_call == 1)
-  print(fold_diff)
-  if (fold_diff  > 2) {
-    warning(paste0("More than 2x more muts expected mutated than mutation calls for sample: ", name))
-    next
+
+  # count the samples not making it to the filtering cohort (due to many mutations not passing filtering criteria)
+  total_muts = mut_calls |> filter(mut_call == 1) |> count(sampleID, name = "n_filter")
+  n_filter = total_depth_id |> count(sampleID, name = "n_total")
+
+  sample_mut_threshold = left_join(total_muts, n_filter, by = "sampleID") |>
+    mutate(fraction_muts_filter = n_filter / n_total) |>
+    filter_out(is.na(fraction_muts_filter))
+
+  mut_calls = mut_calls |>
+    mutate(sample_low_threshold = "PASS")
+
+  if (any(sample_mut_threshold$fraction_muts_filter <= 0.5)) {
+
+    sample_low_threshold = sample_mut_threshold |>
+      filter(fraction_muts_filter <= 0.5) |>
+      pull(sampleID)
+
+    warning(paste0("More than 2x more muts expected mutated than mutation calls for sample: ", name,
+                   "\nSampleIDs:" , paste0(sample_low_threshold, collapse = ", ")))
+
+
+    mut_calls = mut_calls |>
+      mutate(sample_low_threshold = ifelse(sampleID %in% sample_low_threshold, "low_threshold", "PASS"))
+
+
+    if (all(sample_mut_threshold$fraction_muts_filter <= 0.5)) {
+      warning(paste0("More than 2x more muts expected mutated than mutation calls for all samples from sample: ", name))
+      next
+    }
   }
 
   # join dataframes and filter out all sites in which the mutation call is not 1.
@@ -90,10 +112,17 @@ for (name in names(total_depth_files)) {
            pos = str_split_i(mutID, pattern = "_", 2),
            ref = str_split_i(mutID, pattern = "_", 3),
            alt = str_split_i(mutID, pattern = "_", 4)) |>
-    dplyr::select(sampleID, chr, pos, ref, alt, VAF)
+    dplyr::select(sampleID, chr, pos, ref, alt, sample_low_threshold)
 }
 
 IBD_normal_muts = rbindlist(list_patient_muts)
+
+
+
+# get numbers of samples left out;
+
+IBD_normal_muts$sampleID |> n_distinct()
+IBD_normal_muts |> filter(sample_low_threshold == "PASS") |> pull(sampleID) |> n_distinct()
 
 
 # get underlying VAFs of the samples:

@@ -1,5 +1,6 @@
 # Figure S3
 # summary of the signature refitting methods across all cohorts
+source("code/0_functions/analysis_variables.R")
 
 # load metadata
 md_files = list.files("processed_data/", recursive = TRUE, pattern = "_metadata",

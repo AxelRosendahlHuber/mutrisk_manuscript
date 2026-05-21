@@ -1,5 +1,4 @@
 # load all neccesary functions and tables:
-library(cowplot)
 source("code/0_functions/analysis_variables.R")
 
 genie_data = fread("raw_data/GENIE_17/data_mutations_extended.txt")
