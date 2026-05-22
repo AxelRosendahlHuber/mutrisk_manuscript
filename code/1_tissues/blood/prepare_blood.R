@@ -15,17 +15,12 @@ cell_muts = lapply(sample_mut_list, fread) |>
   rbindlist(idcol = "donor") |>
   mutate(category = "normal")
 
-# Check that samples KX007 and AX001 have the same mutation data
-x = cell_muts |> filter(donor == "KX007") |> dplyr::select(sampleID, chr, pos, ref, alt)
-y = cell_muts |> filter(donor == "AX001") |> dplyr::select(sampleID, chr, pos, ref, alt)
-
 metadata = fread("raw_data/blood/Summary_cut.csv") |>
   dplyr::rename(sampleID = PDID, donor = donor_id) |>
   dplyr::select(donor, sampleID, age, mean_depth) |>
   mutate(category = "normal")
 
 metadata = metadata |>
-  filter(donor != "KX007") |> # Since either KX007 and AX001 have the same mutations
   mutate(vaf_estimate = 0.5, # all samples are coming from clonal cultures,
          sensitivity = get_sensitivity(coverage = mean_depth, vaf = vaf_estimate)) |>
   dplyr::rename(coverage = mean_depth)
@@ -43,11 +38,14 @@ fread("raw_data/blood/Summary_cut.csv") |>
   table()
 
 # plot the variant allele fraction for all donors and for one donor specific curves
-# furhtermore make two plots on the VAF of the donors of this data
+# As panels B and C add the density plots of the VAF for individual samples
+# filter out cord blood samples, as it is not possible to estimate VAFs for these samples
+cell_muts_no_CB = cell_muts |> filter(!grepl("CB", donor))
+supplementary_note_plot_blood = create_vaf_overview(cell_muts_no_CB, c("KX001", "KX008"))
+ggsave("manuscript/Supplementary_notes/Supplementary_Note_X/figure_blood.png", supplementary_note_plot_blood, width = 10, height = 12)
 
 # thus, samples from donor KX007 can be filtered out
 cell_muts = cell_muts |>
-  filter(donor != "KX007")  |>
   dplyr::select(sampleID, chr, pos, ref, alt, category, donor)
 
 # check the effect of the coverage on the mutation rate and the adjustment for sensitivity on it

@@ -4,15 +4,22 @@
 source("code/0_functions/analysis_variables.R")
 
 tissue = "colon"
-
 metadata_IBD_normal = fread("raw_data/colon/normal/cell_11495_mmc2.txt")
-metadata_IBD_normal <- metadata_IBD_normal[!duplicated(metadata_IBD_normal$crypt_ID) &
-                                             !duplicated(metadata_IBD_normal$crypt_ID, fromLast = TRUE),]
-# remove duplicated crypt id
 metadata_POL = readxl::read_excel("raw_data/colon/hypermutated/Figures/input_files/Extended_Data_Table2.xlsx")
 
+# from metadata remove duplicated crypt id
+metadata_IBD_normal <- metadata_IBD_normal[!duplicated(metadata_IBD_normal$crypt_ID) &
+                                             !duplicated(metadata_IBD_normal$crypt_ID, fromLast = TRUE),]
+
+meta_IBD_normal = metadata_IBD_normal |>
+  dplyr::mutate(category = ifelse(cohort == "control_data", "normal", "IBD")) |>
+  dplyr::select(crypt_ID, Age, patient_ID, category, Coverage) |>
+  dplyr::rename(sampleID = crypt_ID,
+                age = Age,
+                donor = patient_ID,
+                coverage = Coverage)
+
 # load data from normal and IBD colon samples
-# NOTE: data from normal and IBD colon samples is branch-specific, instead of colon specific
 normal_muts = fread("raw_data/colon/normal/All_control_cohort_mutations_mapped_to_branches.txt") |>
   mutate(category = "normal")
 IBD_muts = fread("raw_data/colon/normal/All_IBD_cohort_mutations_mapped_to_branches.txt") |>
@@ -29,10 +36,8 @@ names(patient_files) = gsub("_.*", "", basename(patient_files))
 total_depth_files = list.files("raw_data/colon/normal/Pile-ups_read_counts/",
                                pattern = "total_depth", full.names = TRUE)
 names(total_depth_files) = gsub("_.*", "", basename(total_depth_files))
-alt_allele_files = list.files(
-  "raw_data/colon/normal/Pile-ups_read_counts/",
-  pattern = "alt_allele_reads",
-  full.names = TRUE)
+alt_allele_files = list.files("raw_data/colon/normal/Pile-ups_read_counts/",
+                              pattern = "alt_allele_reads", full.names = TRUE)
 
 names(alt_allele_files) = gsub("_.*", "", basename(alt_allele_files))
 
@@ -45,6 +50,11 @@ for (name in names(total_depth_files)) {
     rownames_to_column("mutID") |>
     pivot_longer(-mutID, names_to = "sampleID", values_to = "mut_call") |>
     distinct()
+
+  raw_mut_counts = mut_calls |>
+    filter(mut_call == 1) |>
+    count(sampleID)
+
   total_depth = vroom::vroom(total_depth_files[[name]], show_col_types = FALSE) |>
     pivot_longer(-mutID, names_to = "sampleID", values_to = "depth") |>
     distinct() |>
@@ -90,9 +100,7 @@ for (name in names(total_depth_files)) {
                    "\nSampleIDs:" , paste0(sample_low_threshold, collapse = ", ")))
 
 
-    mut_calls = mut_calls |>
-      mutate(sample_low_threshold = ifelse(sampleID %in% sample_low_threshold, "low_threshold", "PASS"))
-
+    mut_calls$sample_low_threshold = case_when(mut_calls$sampleID %in% sample_low_threshold ~ "low_threshold", .default =  "PASS")
 
     if (all(sample_mut_threshold$fraction_muts_filter <= 0.5)) {
       warning(paste0("More than 2x more muts expected mutated than mutation calls for all samples from sample: ", name))
@@ -107,31 +115,29 @@ for (name in names(total_depth_files)) {
 
   # calculate the VAF for each of the patients, and split the mutation ID in the respective columns
   list_patient_muts[[name]] = donor_muts |>
-    mutate(VAF = alt_depth / depth) |>
+    mutate(vaf = alt_depth / depth) |>
     mutate(chr = str_split_i(mutID, pattern = "_", 1),
            pos = str_split_i(mutID, pattern = "_", 2),
            ref = str_split_i(mutID, pattern = "_", 3),
            alt = str_split_i(mutID, pattern = "_", 4)) |>
-    dplyr::select(sampleID, chr, pos, ref, alt, sample_low_threshold)
+    dplyr::select(sampleID, chr, pos, ref, alt, sample_low_threshold, vaf)
 }
 
 IBD_normal_muts = rbindlist(list_patient_muts)
 
-
+IBD_normal_muts$sample_low_threshold |> table()
 
 # get numbers of samples left out;
-
 IBD_normal_muts$sampleID |> n_distinct()
 IBD_normal_muts |> filter(sample_low_threshold == "PASS") |> pull(sampleID) |> n_distinct()
-
 
 # get underlying VAFs of the samples:
 vaf_estimates_normal_IBD = IBD_normal_muts |>
   group_by(sampleID) |>
-  dplyr::summarize(vaf_estimate = estimate_vaf(VAF))
+  dplyr::summarize(vaf_estimate = estimate_vaf(vaf))
 
 IBD_ids = metadata_IBD_normal |>
-  dplyr::rename(sampleID = crypt_ID) |>
+  dplyr::rename(sampleID = crypt_ID, donor = patient_ID) |>
   mutate(category = ifelse(cohort == "control_data", "normal", "IBD")) |>
   dplyr::select(sampleID, category) |>
   distinct()
@@ -140,51 +146,30 @@ WT_muts = left_join(IBD_normal_muts, IBD_ids, by = "sampleID") |>
   filter(!is.na(category))
 
 # make a supplementary figure showing the underlying VAF of each part
-VAF_per_sample = WT_muts |>
-  left_join(meta_IBD_normal) |>
-  group_by(donor, sampleID, category) |>
-  summarize(mean_vaf = mean(VAF)) |>
-  ggplot(aes(x = donor, y = mean_vaf)) +
-  geom_hline(yintercept = 0.5, linetype = "dashed") +
-  ggbeeswarm::geom_quasirandom(size = 0.8) +
-  facet_wrap(category ~ ., ncol = 1, scale = "free", space = "free_x") +
-  theme_cowplot() +
-  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1)) +
-  scale_y_continuous(limits = c(0, 0.75),
-                     breaks = scales::extended_breaks(4)) +
-  labs(y = "average VAF per sample")
+WT_muts_meta = WT_muts |>
+  left_join(meta_IBD_normal, by =  c("sampleID", "category"))
 
-set.seed(10)
-cell_muts |> pull(donor) |> table()
-PD26988_plot = cell_muts |>
-  filter(donor == "PD26988") |>
-  #filter(sampleID %in% base::sample(unique(sampleID), 40)) |>
-  mutate(y = as.numeric(as.factor(sampleID))) |>
-  group_by(y) |>
-  ggplot(aes(x = VAF, y = y, group = y)) +
-  ggridges::geom_density_ridges() +
-  geom_vline(xintercept = 0.5, linetype = "dashed") +
-  theme_cowplot() +
-  labs(title = "clones from donor PD26988", y = "HSC/MPP clones", x = "VAF of individiual mutations across sample")
+vafs = WT_muts_meta |>
+  group_by(sampleID) |>
+  summarize(mean_vaf = mean(vaf)) |>
+  pull(mean_vaf)
+max(vafs)
+min(vafs)
+mean(vafs)
 
-PD37453_plot = cell_muts |>
-  filter(donor == "PD37453") |>
-  #  filter(sampleID %in% base::sample(unique(sampleID), 40)) |>
-  mutate(y = as.numeric(as.factor(sampleID))) |>
-  group_by(y) |>
-  ggplot(aes(x = VAF, y = y, group = y)) +
-  ggridges::geom_density_ridges() +
-  geom_vline(xintercept = 0.5, linetype = "dashed") +
-  theme_cowplot() +
-  labs(title = "clones from donor PD37453", y = "HSC/MPP clones", x = "VAF of individiual mutations across sample")
-
-supplementary_note_plot_lung = VAF_per_sample / (PD26988_plot | PD37453_plot)
-ggsave("manuscript/Supplementary_notes/Supplementary_Note_X/figure_lung.png", supplementary_note_plot_lung, width = 10, height = 10)
+supplementary_note_plot_colon = create_vaf_overview(WT_muts_meta, c("OO82", "patient50"))
+ggsave("manuscript/Supplementary_notes/Supplementary_Note_X/figure_colon.png", supplementary_note_plot_colon, width = 10, height = 10)
 
 
+### POLE - POLD1 study
+# get info on coverage / VAF from the POLE/POLD1 study
+metadata_POL |>
+  pull(coverage) |> parse_number() |> mean(na.rm = TRUE)
+metadata_POL |>
+  pull(median_vaf) |> parse_number() |> mean(na.rm = TRUE)
 
 
-# load data from POLE POLD1 study (Robinson et al., Nature Genetics 2021, https://doi.org/10.1038/s41588-021-00930-y)
+# load mutation data from POLE POLD1 study (Robinson et al., Nature Genetics 2021, https://doi.org/10.1038/s41588-021-00930-y)
 POL_muts = fread("raw_data/colon/hypermutated/DNAPolymerase_NG_somatic_SBS_ID_combined.txt")
 metadata_crypts = metadata_POL |>
   filter(sample_type == "intestinal crypt") |>
@@ -197,15 +182,7 @@ cell_muts = rbind(WT_muts , POLE_POLD1_muts, fill = TRUE)
 
 # save the metadata for the different samples:
 # PART 2: Modeling of mutation rates for the individual samples
-meta_IBD_normal = metadata_IBD_normal |>
-  dplyr::mutate(category = ifelse(cohort == "control_data", "normal", "IBD")) |>
-  dplyr::select(crypt_ID, Age, patient_ID, category, Coverage) |>
-  dplyr::rename(sampleID = crypt_ID,
-                age = Age,
-                donor = patient_ID,
-                coverage = Coverage)
-
-# Update the metadata information parts:
+# Update the metadata information parts with sensitiviy/coverage
 meta_IBD_normal = meta_IBD_normal |>
   left_join(vaf_estimates_normal_IBD) |>
   mutate(sensitivity = get_sensitivity(coverage, vaf_estimate)) |>
