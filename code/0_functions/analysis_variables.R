@@ -6,7 +6,6 @@ library(rtracklayer)
 library(scales)
 library(mutrisk)
 library(cowplot)
-#source("~/Nextcloud/Documents/mutrisk_manuscript/code/0_functions/plot_mut_prob.R") #TODO change this line
 
 # load R functions
 r_funcs = list.files('code/0_functions/', full.names = T, include.dirs = FALSE, recursive = TRUE, pattern = ".R$")
@@ -16,23 +15,24 @@ for (file in r_funcs) {
   source(file)
 }
 
-
 # default number of cells - 70kg male individual
 tissues = factor(c("colon", "lung", "blood"), levels = c("colon", "lung", "blood"))
 tissue_ncells = data.frame(tissue = tissues,
                            ncells = c(6.60e7, 4.33e+9,1e5))
 
 # default number of cells - low: female, high: male, mid: middle
+# Number of cells taken from
 tissue_ncells_ci = data.frame(tissue = tissues,
-                              high_estimate = c(6.60e7, 4.33e+9, 1.3e6),
-                              mid_estimate = c(NA, NA, 1e5),
-                              low_estimate = c(6.42e+7, 3.87e+9, 2.5e4))
+                              male_estimate = c(6.60e7, 4.33e+9, 1.3e6, rep(NA, 3)),
+                              mid_estimate = c(NA, NA, 1e5,  3.75e+7, 1.94e+9, 1e5),
+                              female_estimate = c(6.42e+7, 3.87e+9, 2.5e4, rep(NA, 3)),
+                              age_category = c(rep("adult", 3), rep("child", 3)))
 # for all values for which we do no have the 'mean
-tissue_ncells_ci$mid_estimate[1:2] = (tissue_ncells_ci$high_estimate[1:2] + tissue_ncells_ci$low_estimate[1:2]) /2
+tissue_ncells_ci$mid_estimate[1:2] = (tissue_ncells_ci$male_estimate[1:2] + tissue_ncells_ci$female_estimate[1:2]) /2
 # Take the 'exteme of the values to demonstrate that most estimates still hold
 tissue_ncells_ci_wide = tissue_ncells_ci
-tissue_ncells_ci_wide$high_estimate[1:2] = tissue_ncells_ci$high_estimate[1:2] * 5
-tissue_ncells_ci_wide$low_estimate[1:2] = tissue_ncells_ci$low_estimate[1:2] / 5
+tissue_ncells_ci_wide$male_estimate[1:2] = tissue_ncells_ci$male_estimate[1:2] * 5
+tissue_ncells_ci_wide$female_estimate[1:2] = tissue_ncells_ci$female_estimate[1:2] / 5
 
 # Default colors for the different tissues
 blood_colors = c(normal ="#ff725c")

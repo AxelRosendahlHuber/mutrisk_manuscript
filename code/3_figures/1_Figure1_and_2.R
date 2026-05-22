@@ -202,9 +202,9 @@ analyze_probability = function(gene_counts, analysis_name, groupby = "donor",
 
     expected_rates = expected_rates |>
       mutate(groupid = expected_rates[[groupby]]) |>
-      group_by(category, mut_type, groupid) |>
-      summarize(across(c(mle, cilow, cihigh), mean)) |>
-      ungroup() |> setDT()
+      group_by(category, mut_type, groupid, age) |>
+      summarize(across(c(mle, cilow, cihigh), mean), .groups = "drop") |>
+      setDT()
 
     ratios = fread(paste0("processed_data/", tissue, "/", tissue, "_mut_ratios.tsv.gz"))
 
@@ -249,7 +249,11 @@ analyze_probability = function(gene_counts, analysis_name, groupby = "donor",
     plot_data = lapply(category_list, pivot_longer, everything()) |>
       rbindlist(idcol = "category") |> arrange(value)
 
+    age_df = metadata |> select(contains(groupby), "age") |>
+      `colnames<-`(c("name", "age")) |> distinct()
+
     result_plot = plot_data |>
+      left_join(age_df, by = 'name') |>
       arrange(category, name, value) |>
       group_by(category, name)
 
@@ -257,15 +261,16 @@ analyze_probability = function(gene_counts, analysis_name, groupby = "donor",
 
     # get the cell counts
     ncells = tissue_ncells$ncells[tissue_ncells$tissue == tissue]
-    ncells_ci = tissue_ncells_ci[tissue_ncells$tissue == tissue,]
+    ncells_ci = tissue_ncells_ci[tissue_ncells_ci$tissue == tissue,]
     ncells_ci_wide = tissue_ncells_ci_wide[tissue_ncells$tissue == tissue,]
 
     result_plot_df = result_plot |>
       ungroup() |>
-      mutate(n_mutated_cells = value * ncells,
-             ncells = ncells,
-             x = rep(1:binsize, n_groups(result_plot)) / 1e4,
-             x = x/max(x)) # normalize to 1
+      mutate(ncells_age = case_when(age <= 15 ~ ncells_ci$mid_estimate[2],
+                                    age > 16 ~ ncells_ci$mid_estimate[1]),
+        n_mutated_cells = value * ncells_age,
+        x = rep(1:binsize, n_groups(result_plot)) / 1e4,
+        x = x/max(x)) # normalize to 1
 
     result_plot_list[[tissue]] = result_plot_df # save for later analysis
 
