@@ -1,3 +1,5 @@
+# TODO: Make an option to adjust the number of cells for the age groups 15 years or younger
+
 merge_mutrisk_drivers = function(boostdm, ratios, expected_rates,  gene_of_interest, tissue_select = "colon", tissue_name,
                                  category_select = "normal", cell_probabilities = FALSE,
                                  individual = FALSE, filter_age = TRUE) {

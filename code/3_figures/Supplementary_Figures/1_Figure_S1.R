@@ -12,9 +12,9 @@ source("code/0_functions/analysis_variables.R")
 ### define the plotting colors:
 obs_pal <- c("#3ca951", "#4269d0", "#ff725c", "#6cc5b0", "#9498a0", "#97bbf5", "#9c6b4e",
              "#a463f2", "#efb118", "#ff8ab7")
-blood_colors = "#ff725c"
-lung_colors = c("#4269d0", "#7c86a1", "#161459")
-colon_colors = c("#3ca951", "#6cc5b0", "#145220", "#222e24")
+# blood_colors = "#ff725c"
+# lung_colors = c("#4269d0", "#7c86a1", "#161459")
+# colon_colors = c("#3ca951", "#6cc5b0", "#145220", "#222e24")
 
 # Load the Whole Genome mutations:
 wgs_files = list.files("processed_data", pattern = "cell_muts.tsv.gz", recursive = TRUE, full.names = TRUE)
@@ -38,7 +38,7 @@ dnds_files = dnds_files[!grepl("bladder|pancreas|liver|unique|comparison|chemoth
 dnds_files = dnds_files[!grepl("exon", dnds_files)]
 names(dnds_files) = paste0(str_split_i(dnds_files, "\\/", 3), "_", gsub("_dnds.rds", "", basename(dnds_files)))
 list_muts = lapply(dnds_files, \(x) readRDS(x)[["annotmuts"]]) |>
-  lapply(select,  c(sampleID, chr, pos, ref, mut, txind, tx_gene, gene, strand, ref_cod, mut_cod)) |>
+  lapply(dplyr::select,  c(sampleID, chr, pos, ref, mut, txind, tx_gene, gene, strand, ref_cod, mut_cod)) |>
   rbindlist(idcol = "tissue_category", fill = TRUE) |>
   mutate(tissue = gsub("_.*", "", tissue_category),
          category = gsub(".*_", "", tissue_category)) |>
@@ -63,12 +63,6 @@ sample_wgs_exome = left_join(wgs_muts, by = c("sampleID", "tissue"), sample_mut_
   arrange(tissue, exome_muts) |>
   mutate(id = 1:dplyr::n()) |> ungroup()
 
-Supp_tables$Supplementary_table_1 = sample_wgs_exome |> select(-id)
-
-sample_wgs_exome_long = pivot_longer(sample_wgs_exome, c( -tissue, -sampleID, -id))  |>
-  filter(!is.na(value)) |>
-  group_by(sampleID) |>
-  filter(dplyr::n() > 1)
 
 # load all metadata:
 metadata_files = c("processed_data/blood/blood_metadata.tsv", "processed_data/colon/colon_metadata.tsv",
@@ -80,8 +74,10 @@ meta_age = lapply(metadata_files, \(x) fread(x) |>
   distinct()
 fwrite(meta_age, "processed_data/metadata_all.txt.gz")
 
-Supp_tables$Supplementary_table_2 = meta_age |> select(tissue, category, donor, age) |> distinct()
-Supp_tables$Supplementary_table_3 = meta_age
+
+Supp_tables$Supplementary_table_1 = sample_wgs_exome |>  left_join(meta_age) |> dplyr::select(-id)
+Supp_tables$Supplementary_table_2 = meta_age |> dplyr::select(tissue, category, donor, age) |> distinct()
+Supp_tables$Supplementary_table_3 = meta # table 3 is now redundant, check if this can be removed
 
 # Numbers for the manuscript: Take only the samples for which the mutations are also matching all filters
 n_clones_n_donors = meta_age |>

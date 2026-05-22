@@ -6,7 +6,6 @@ library(rtracklayer)
 library(scales)
 library(mutrisk)
 library(cowplot)
-#source("~/Nextcloud/Documents/mutrisk_manuscript/code/0_functions/plot_mut_prob.R") #TODO change this line
 
 # load R functions
 r_funcs = list.files('code/0_functions/', full.names = T, include.dirs = FALSE, recursive = TRUE, pattern = ".R$")
@@ -16,30 +15,31 @@ for (file in r_funcs) {
   source(file)
 }
 
-
 # default number of cells - 70kg male individual
 tissues = factor(c("colon", "lung", "blood"), levels = c("colon", "lung", "blood"))
 tissue_ncells = data.frame(tissue = tissues,
                            ncells = c(6.60e7, 4.33e+9,1e5))
 
 # default number of cells - low: female, high: male, mid: middle
+# Number of cells taken from
 tissue_ncells_ci = data.frame(tissue = tissues,
-                              high_estimate = c(6.60e7, 4.33e+9, 1.3e6),
-                              mid_estimate = c(NA, NA, 1e5),
-                              low_estimate = c(6.42e+7, 3.87e+9, 2.5e4))
+                              high_estimate = c(6.60e7, 4.33e+9, 1.3e6, rep(NA, 2), 1.3e6),
+                              mid_estimate = c(NA, NA, 1e5,  3.75e+7, 1.94e+9, 1e5),
+                              low_estimate = c(6.42e+7, 3.87e+9, 2.5e4, rep(NA, 2), 2.5e4),
+                              age_category = c(rep("adult", 3), rep("child", 3)))
 # for all values for which we do no have the 'mean
 tissue_ncells_ci$mid_estimate[1:2] = (tissue_ncells_ci$high_estimate[1:2] + tissue_ncells_ci$low_estimate[1:2]) /2
 # Take the 'exteme of the values to demonstrate that most estimates still hold
 tissue_ncells_ci_wide = tissue_ncells_ci
 tissue_ncells_ci_wide$high_estimate[1:2] = tissue_ncells_ci$high_estimate[1:2] * 5
 tissue_ncells_ci_wide$low_estimate[1:2] = tissue_ncells_ci$low_estimate[1:2] / 5
+tissue_ncells_ci_wide$high_estimate[4:5] = tissue_ncells_ci$mid_estimate[4:5] * 5
+tissue_ncells_ci_wide$low_estimate[4:5] = tissue_ncells_ci$mid_estimate[4:5] / 5
 
 # Default colors for the different tissues
 blood_colors = c(normal ="#ff725c")
 lung_colors = c(`non-smoker` = "#4269d0", `ex-smoker` = "#7c86a1", smoker = "#161459")
 colon_colors = c(normal = "#3ca951", IBD = "#6cc5b0",  POLD1 = "#222e24", POLE = "#145220")
-skin_colors = c("#efb118" , "#ff8ab7", "#9c6b4e")
-liver_colors = c("#800000", "#B87333", "#5C4033")
 
 tissue_colors = list(blood = blood_colors,
                      lung = lung_colors,

@@ -71,16 +71,49 @@ mean_signatures_ordered = mean_signatures |>
          name = factor(name, levels = c("blood normal", "colon normal", "colon IBD","colon POLD1",
                                         "colon POLE", "lung non-smoker", "lung ex-smoker", "lung smoker")))
 
-sig_contribution_plot = ggplot(mean_signatures_ordered, aes(x = name, y = contribution, fill = signature)) +
+colors = setNames(ggsci::pal_igv()(n_distinct(mean_signatures_ordered$signature)),
+                  unique(mean_signatures_ordered$signature))
+
+
+
+plot_blood = ggplot(mean_signatures_ordered |> filter(grepl("blood", name)),
+                                aes(x = name, y = contribution, fill = signature)) +
   geom_col() +
   ggsci::scale_fill_igv() +
   labs(x = NULL) +
   theme_cowplot() +
+  scale_fill_manual(values = colors) +
   theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1)) +
   scale_y_continuous(expand = expansion(mult = c(0, 0))) +
-  labs(y = "relative signature contribution", title = "Signatures active across the 8 cohorts")
-sig_contribution_plot
-ggsave("manuscript/Supplementary_Figures/Figure_S2/Figure_S2.png" , sig_contribution_plot,
-       width = 8, height = 5, bg = "white")
+  labs(y = "relative signature contribution", title = "Blood cohort")
+
+plot_colon = ggplot(mean_signatures_ordered |> filter(grepl("colon", name)),
+                                aes(x = name, y = contribution, fill = signature)) +
+  geom_col() +
+  ggsci::scale_fill_igv() +
+  labs(x = NULL) +
+  theme_cowplot() +
+  scale_fill_manual(values = colors) +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1)) +
+  scale_y_continuous(expand = expansion(mult = c(0, 0))) +
+  labs(y = "relative signature contribution", title = "Colon cohorts")
+
+plot_lung = ggplot(mean_signatures_ordered |> filter(grepl("lung", name)),
+                                aes(x = name, y = contribution, fill = signature)) +
+  geom_col() +
+  ggsci::scale_fill_igv() +
+  labs(x = NULL) +
+  theme_cowplot() +
+  scale_fill_manual(values = colors) +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1)) +
+  scale_y_continuous(expand = expansion(mult = c(0, 0))) +
+  labs(y = "relative signature contribution", title =   "Lung cohorts")
+
+
+
+
+total_plot = plot_blood + plot_colon + plot_lung + plot_layout(widths = c(1,3,2.3))
+ggsave("manuscript/Supplementary_Figures/Figure_S2/Figure_S2_raw.pdf" , total_plot,
+       width = 12, height = 5, bg = "white")
 
 #  TODO use for the blood signature SBS1, SBS5 and SBS blood.
