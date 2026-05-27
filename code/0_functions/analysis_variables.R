@@ -28,7 +28,7 @@ tissue_ncells_ci = data.frame(tissue = tissues,
                               low_estimate = c(6.42e+7, 3.87e+9, 2.5e4, rep(NA, 2), 2.5e4),
                               age_category = c(rep("adult", 3), rep("child", 3)))
 # for all values for which we do no have the 'mean
-tissue_ncells_ci$mid_estimate[1:2] = (tissue_ncells_ci$high_estimate[1:2] + tissue_ncells_ci$low_estimate[1:2]) /2
+tissue_ncells_ci$mid_estimate[1:2] = (tissue_ncells_ci$male_estimate[1:2] + tissue_ncells_ci$female_estimate[1:2]) /2
 # Take the 'exteme of the values to demonstrate that most estimates still hold
 tissue_ncells_ci_wide = tissue_ncells_ci
 tissue_ncells_ci_wide$high_estimate[1:2] = tissue_ncells_ci$high_estimate[1:2] * 5
