@@ -2,8 +2,6 @@
 library(GenomicRanges)
 source("code/0_functions/analysis_variables.R")
 
-# internal function
-
 # load the bowel cancer data:
 tissue = "colon"
 
@@ -52,9 +50,8 @@ cumulative_incidence = ggplot(ukbiobank_crc, aes(x = age)) +
   labs(y = "Risk percentage", title = "Cumulative Incidence") +
   theme(plot.title = element_text(hjust = 0.5))
 
-# combine plots in an overview plot:
+# combine plots in an overview plot of the UKbiobank incidence rate
 n_cohort + CRC_incidence + yearly_incidence_rates + cumulative_incidence
-# check if it is possible to save this figure, also for the manuscript
 
 # group the UKBiobank cohort in groups of 10 years
 ukbiobank_crc = ukbiobank_crc |>
@@ -151,7 +148,6 @@ expected_rates_normal |>
 
 # Expected number of cells with double mutations:
 apc_counts_boostdm = colon_bDM[gene_name == "APC" & driver == TRUE, .N, by = c("gene_name", "mut_type",  "driver")]
-
 apc_single_snv = expected_rates_normal |>
   left_join(ratios |> filter(gene_name == "APC")) |>
   left_join(metadata) |>
@@ -171,68 +167,54 @@ apc_muts_estimated$mle |> min()
 apc_muts_estimated$mle |> mean()
 
 # Expected number of cells with double mutations:
-apc_counts_boostdm = colon_bDM[gene_name == "TP53" & driver == TRUE, .N, by = c("gene_name", "mut_type",  "driver")]
-
-apc_single_snv = expected_rates_normal |>
-  left_join(ratios |> filter(gene_name == "TP53")) |>
-  left_join(metadata) |>
-  inner_join(apc_counts_boostdm |> filter(driver), by = "mut_type", relationship = "many-to-many") |>
-  mutate(across(c(mle, cilow, cihigh), ~ . * N * ratio)) |>
-  group_by(category, donor, age,  mut_type) |>
-  summarize(across(c(mle, cilow, cihigh), mean), .groups = "drop_last") |>
-  summarize(across(c(mle, cilow, cihigh), sum), .groups = "drop")
-
 apc_muts_estimated = apc_single_snv |>
   mutate(mle = mle * ncells) |>
-  filter(age > 35) |>
-  arrange(mle) |>
-  as.data.table()
+  arrange(mle) |>  as.data.table()
+
+
+# for the individuals above 35 years, or of the age 60
+apc_muts_estimated_35 = apc_muts_estimated |> filter(age > 35)
 apc_muts_estimated$mle |> max()
 apc_muts_estimated$mle |> min()
 apc_muts_estimated$mle |> mean()
 
-
-apc_muts_estimated = apc_single_snv |>
-  mutate(mle = mle * ncells) |>
-  filter(age == 60) |>
-  arrange(mle) |>
-  as.data.table()
-apc_muts_estimated$mle |> max()
-apc_muts_estimated$mle |> min()
-apc_muts_estimated$mle |> mean()
-
+apc_muts_estimated_60 = apc_muts_estimated |> filter(age > 35)
+apc_muts_estimated_60$mle |> max()
+apc_muts_estimated_60$mle |> min()
+apc_muts_estimated_60$mle |> mean()
 
 double_apc = apc_single_snv |>
   mutate(across(c(mle, cilow, cihigh), ~ ((.^2) /4)))
-
 double_apc_ncells = double_apc |>
   mutate(ncells_mut = mle * ncells) |>
-  filter(age > 35) |>
-  arrange(age) |>
-  as.data.table()
+  arrange(age) |>   as.data.table()
 
+double_apc_ncells_35 = double_apc_ncells  |> filter(age > 35)
 double_apc_ncells$ncells_mut |> min()
 double_apc_ncells$ncells_mut |> mean()
 double_apc_ncells$ncells_mut |> max()
 
-double_apc_ncells = double_apc |>
-  mutate(ncells_mut = mle * ncells) |>
-  filter(age == 60) |>
-  arrange(age) |>
-  as.data.table()
-
-double_apc_ncells$ncells_mut |> min()
-double_apc_ncells$ncells_mut |> mean()
-double_apc_ncells$ncells_mut |> max()
+double_apc_ncells_60 = double_apc_ncells  |> filter(age == 60)
+double_apc_ncells_60$ncells_mut |> min()
+double_apc_ncells_60$ncells_mut |> mean()
+double_apc_ncells_60$ncells_mut |> max()
 
 KRAS_single_snv = expected_rates_normal |>
   inner_join(KRAS_single_snv_muts, by = "mut_type", relationship = "many-to-many") |>
   left_join(metadata) |>
-  filter(age == 60) |>
   left_join(ratios) |>
   mutate(across(c(mle, cilow, cihigh), ~ . * ratio)) |>
   group_by(donor, category) |>
   summarise(across(c(mle, cilow, cihigh, age), mean), groups = "drop")
+
+# Combination of single APC + single KRAS driver mutations
+apc_kras = apc_single_snv |>
+  left_join(KRAS_single_snv |> select(donor, category, mle_kras = mle, cilow_kras = cilow, cihigh_kras = cihigh),
+            by = c("donor", "category")) |>
+  mutate(mle = mle * mle_kras,
+         cilow = cilow * cilow_kras,
+         cihigh = cihigh * cihigh_kras) |>
+  select(-mle_kras, -cilow_kras, -cihigh_kras)
 
 double_apc_kras = double_apc_ncells |>
   mutate(mle = mle * KRAS_single_snv$mle,
@@ -242,14 +224,13 @@ double_apc_kras = double_apc_ncells |>
 # Manuscript number
 mean(double_apc_kras$mle * ncells) * 1e6
 
-# manuscript: number of 60-year olds with 2x APC and KRAS mutation
-risk_double_apc_kras= double_apc_kras |>
+# manuscript: number of 60-year olds with 2x APC and KRAS mutation: 1.03 per million individuals
+risk_double_apc_kras = double_apc_kras |>
   filter(age == 60) |>
   mutate(mle = mle * ncells) |>
   summarize(mle = mean(mle)) |>
   as.numeric()
 risk_double_apc_kras * 1e6
-
 
 # Plot the driver mutation rates
 plot_driver_muts = function(driver_rates, y_axis = "INSERT TITLE") {
@@ -265,24 +246,24 @@ plot_driver_muts = function(driver_rates, y_axis = "INSERT TITLE") {
     theme(legend.position = "none", axis.title = element_text(size = 12))
 }
 
+# Make plots not for the manuscript (only KRAS, or single APC + KRAS)
+KRAS_single_snv_plot = plot_driver_muts(KRAS_single_snv, y_axis = "Number of cells with\nKRAS driver mutations")
+apc_kras_plot = plot_driver_muts(apc_kras, y_axis = "Number of cells with\nAPC + KRAS driver mutations")
+
+# Manuscript-specific plots
 F4C = plot_driver_muts(apc_single_snv, y_axis = "Number of cells with\nan APC driver mutation")
-F4D = plot_driver_muts(KRAS_single_snv, y_axis = "Number of cells with\nKRAS driver mutations")
-F4E = plot_driver_muts(double_apc, y_axis = "Number of cells with\ndouble APC driver mutations")
-F4F = plot_driver_muts(apc_kras, y_axis = "Number of cells with\nAPC + KRAS driver mutations")
-F4G = plot_driver_muts(double_apc_kras, y_axis = "Number of cells with\n doubleAPC + KRAS driver mutations") +
+F4F = plot_driver_muts(double_apc, y_axis = "Number of cells with\ndouble APC driver mutations")
+  F4H = plot_driver_muts(double_apc_kras, y_axis = "Number of cells with\n doubleAPC + KRAS driver mutations") +
   scale_y_continuous(labels = scales::label_number_auto())
 
 # make the figures for
-figs = list(F4C = F4C, F4D = F4D, F4E = F4E, F4F = F4F, F4G = F4G)
+figs = list(F4C = F4C, F4F = F4F, F4H = F4H)
 
 for (fig_i in names(figs)) {
   ggsave(paste0("plots/colon/", fig_i, "_colon.png"), figs[[fig_i]], width = 5, height = 4)
 }
 
-saveRDS(figs, "manuscript/figure_panels/figure_4/figures_C-G.rds")
-
-# annotated_figs = lapply(names(figs), \(x) prep_plot(figs[[x]], substr(x, 3,3)))
-# c = wrap_plots(annotated_figs, nrow = 1 )
+saveRDS(figs, "manuscript/figure_panels/figure_4/figures_C_F_H.rds")
 
 # TP53 mutations - check if this needs to be here or in Figure 3 script (the TP53 script)
 TP53_single_driver = expected_rates |>
@@ -332,6 +313,7 @@ label_65 = mutated_fraction_CRC |>
   filter(age == 65) |>
   mutate(label = paste0(format(signif(CRC_mut_fraction*100, digits = 2)), "%"))
 
+# single overview plot with all the CRC mutations in there:
 ggplot(mutated_fraction_CRC, aes(x = age, y = CRC_mut_fraction)) +
   geom_point() +
   geom_line() +
@@ -471,7 +453,7 @@ figure_no_SBS88 = df_APC_noSBS88 |>
   geom_point(size = 3) +
   theme_cowplot() +
   scale_color_manual(values = c("black", "darkolivegreen3")) +
-  scale_y_continuous(labels = label_comma()) +
+  scale_y_continuous(labels = label_comma(), limits = c(0, NA)) +
   labs(x = "Age (years)", color = NULL) +
   theme(legend.position = "inside", legend.position.inside = c(0.1, 0.8))
 
@@ -485,7 +467,7 @@ figure_no_SBS89 = df_APC_noSBS89 |>
   geom_point(size = 3) +
   theme_cowplot() +
   scale_color_manual(values = c("black", "darkgoldenrod3")) +
-  scale_y_continuous(labels = label_comma()) +
+  scale_y_continuous(labels = label_comma(), limits = c(0, NA)) +
   labs(x = "Age (years)", color = NULL) +
   theme(legend.position = "inside", legend.position.inside = c(0.1, 0.8))
 
@@ -495,3 +477,4 @@ saveRDS(figure_S6A, "manuscript/Supplementary_Figures/Figure_S6/figure_S6A.rds")
 # summary plot comparing the mutational load
 supplementerary_figure_B = prep_plot(figure_no_SBS89, "B")
 figure_S6A + supplementerary_figure_B
+
