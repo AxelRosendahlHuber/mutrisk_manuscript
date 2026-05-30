@@ -9,12 +9,13 @@ figure_1B = readRDS("manuscript/figure_panels/figure_1/figure_1B.rds") |> prep_p
 figure_1C = readRDS("manuscript/figure_panels/figure_1/figure_1C.rds") |> prep_plot(label = "C", all_margin = mg)
 figure_1D = readRDS("manuscript/figure_panels/figure_1/figure_1D.rds") |> prep_plot(label = "D", all_margin = mg)
 
-figure_1_middle = figure_1B + plot_spacer() + plot_layout(widths = c(2.5, 1))
+figure_1_middle = figure_1B # plot_spacer() + plot_layout(widths = c(2.8, 0.7))
 figure_1_bottom = figure_1C + figure_1D + plot_layout(widths = c(2.5, 1))
 figure_1  = figure_1A / figure_1_middle / figure_1_bottom + plot_layout(heights =  c(1,1, 1))
 
-ggsave("manuscript/Figure_1/figure_1.png", figure_1, width = 15, height = 13)
-ggsave("manuscript/Figure_1/figure_1.pdf", figure_1, width = 15, height = 13)
+ggsave("manuscript/Figure_1/figure_1.png", figure_1, width = 16, height = 13)
+ggsave("manuscript/Figure_1/figure_1.pdf", figure_1, width = 16, height = 13)
+ggsave("manuscript/Figure_1/figure_1.svg", figure_1, width = 16, height = 13)
 
 #### Figure 2
 mg = 10 # set margins
@@ -24,7 +25,7 @@ figure_2C = readRDS("manuscript/figure_panels/figure_2/figure_2C.rds") |> prep_p
 figure_2D = readRDS("manuscript/figure_panels/figure_2/figure_2D.rds") |> prep_plot(label = "D", all_margin = mg)
 
 figure_2_middle =  figure_2B + figure_2C
-figure_2 = figure_2A / figure_2_middle / figure_2D
+figure_2 = figure_2A / figure_2_middle / figure_2D + plot_layout(heights = c(0.8, 1,1))
 ggsave("manuscript/Figure_2/figure_2.png", figure_2, width = 12, height = 12)
 ggsave("manuscript/Figure_2/figure_2.pdf", figure_2, width = 12, height = 12)
 
@@ -88,4 +89,4 @@ figure_S6A = readRDS("manuscript/Supplementary_Figures/Figure_S6/figure_S6A.rds"
 figure_S6B = readRDS("manuscript/Supplementary_Figures/Figure_S6/Figure_S6B.rds") |> prep_plot("B")
 figure_S6C = readRDS("manuscript/Supplementary_Figures/Figure_S6/Figure_S6C.rds") |> prep_plot("C")
 figure_S6 = (figure_S6A | figure_S6B) / figure_S6C
-ggsave("manuscript/Supplementary_Figures/Figure_S6/Figure_S6.png", figure_S6, width = 14, height = 12)
+ggsave("manuscript/Supplementary_Figures/Figure_S6/Figure_S6.svg", figure_S6, width = 14, height = 12)

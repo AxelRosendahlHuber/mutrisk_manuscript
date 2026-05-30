@@ -1,8 +1,6 @@
 ### Exome-wide analyses:
-# Aims of the script: Generate plots for figure 1 and 2 of the manuscript
-# 1. get the exome-wide mutation rate estimates across the different cohort
-# 2. get the exome-wide mutation "saturation" plots across the genome
-
+# Aims of the script: Same script as figure 1 and 2 script.
+# However, in this version, we will change the number of cells for younger individuals.
 library(ggh4x)
 source("code/0_functions/analysis_variables.R")
 set.seed(1234)
@@ -16,8 +14,18 @@ metadata = lapply(md_files, fread) |>
   dplyr::select(any_of(c("tissue", "sampleID", "category", "age", "donor"))) |>
   dplyr::distinct()
 
-metadata |> select(tissue, age, donor) |> distinct() |>
-    filter(donor %in% c("O340", "PD34215", "KX008"))
+metadata_child_cell_number = metadata |>
+  mutate(age_category = ifelse(age > 15, "adult", "child")) |>
+           left_join( tissue_ncells_ci_wide_age) |>
+    dplyr::rename(ncells = mid_estimate) |>
+  dplyr::select(donor, ncells)
+
+metadata_child_cell_numbers_ci = metadata |>
+  mutate(age_category = ifelse(age > 15, "adult", "child")) |>
+  left_join( tissue_ncells_ci_age) |>
+  dplyr::select(donor, contains("estimate")) |>
+  pivot_longer(contains("estimate"), values_to = "ncells")
+
 
 save_plots = function(plot_list, path, name, width = 13, height = 8) {
 
@@ -311,14 +319,20 @@ analyze_probability = function(gene_counts, analysis_name, groupby = "donor",
       mutate(tissue = factor(tissue, levels = c("colon", "lung", "blood")))
   }
 
-  intersects = bind_dfs(prob_intersect_tissue)
-  intersects_ci = bind_dfs(prob_intersects_ci_tissue)
+  # Bind dataframes and change the stem cell number for the number expected in an average 10-year old
+  intersects = bind_dfs(prob_intersect_tissue) |> select(-ncells) |>
+    dplyr::rename(donor = groupID) |>
+    left_join(metadata_child_cell_number)
+  intersects_ci = bind_dfs(prob_intersects_ci_tissue) |>
+    select(-ncells) |>
+    dplyr::rename(donor = groupID) |>
+    left_join(metadata_child_cell_numbers_ci)
+
   probability_rates = bind_dfs(prob_rates_tissue)
   plot_results = bind_dfs(result_plot_list)
 
   plot_list = list()
   plot_list[["plot_saturation"]] = plot_intersect_boxplot(intersects, analysis_name, groupby)
-  plot_list[["plot_saturation_ci"]] = plot_intersect_boxplot_ci(intersects_ci, analysis_name, groupby)
 
   if (filter_normal == TRUE) {
     nrow = 1
@@ -339,13 +353,8 @@ analyze_probability = function(gene_counts, analysis_name, groupby = "donor",
   } else { nrow = 2}
 
   plot_list[["plot_saturation_curve"]] = plot_prob_curve(probability_rates = probability_rates, analysis_name, groupby,nrow = nrow)
-  #plot_list[["plot_saturation_curve_ci_wide"]] = plot_prob_curve_ci(probability_rates = probability_rates, analysis_name, groupby, ncell_df = tissue_ncells_ci_wide, nrow = nrow)
   plot_list[["plot_probabilites_normal_colon"]] = plot_prob_curve(probability_rates |> filter(tissue == "colon" & category == "normal"), analysis_name, groupby, nrow = 1) +
     labs(subtitle = NULL)
-
-
-  table(intersects_ci$tissue)/3
-
 
   plot_list[["plot_saturation_age"]] = plot_saturation_age(intersects_ci |> filter(name == "mid_estimate"), analysis_name, groupby)
   plot_list[["plot_saturation_age_ci"]] = plot_saturation_age_ci(intersects_ci, analysis_name, groupby)
@@ -366,7 +375,7 @@ gene_counts = gene_counts |>
 gene_counts = sample_n(gene_counts, 1e5)
 
 # analyze the frequency of mutations using the groupby setting to "donor". Used for the main figures
-exome_analysis_normal = analyze_probability(gene_counts = gene_counts, analysis_name = "exome analysis", groupby = "donor", filter_normal = TRUE)
+exome_analysis_normal = analyze_probability(gene_counts = gene_counts, analysis_name = "exome analysis_childhood_sc_number", groupby = "donor", filter_normal = TRUE)
 save_plots(exome_analysis_normal$plot_list, path = "plots/coverage_saturation/", name = "normal_exome", width = 7, height = 5)
 save_plots(exome_analysis_normal$plot_list, path = "plots/coverage_saturation/", name = "normal_exome_wideplot", width = 10, height = 5)
 exome_analysis = analyze_probability(gene_counts = gene_counts, analysis_name = "exome analysis", groupby = "donor")

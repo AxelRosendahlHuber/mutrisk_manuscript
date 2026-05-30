@@ -1,7 +1,8 @@
 make_gene_barplot = function(boostdm, ratios, expected_rates,  gene_of_interest,
                              tissue_select = "colon", tissue_name = NULL,
                              category_select = "normal",
-                             cell_probabilities = FALSE, individual = FALSE, older_individuals = TRUE) {
+                             cell_probabilities = FALSE, individual = FALSE, older_individuals = TRUE,
+                             include_hotspots = FALSE) {
 
   if (is.null(tissue_name)) {tissue_name = tissue_select}
 
@@ -40,7 +41,26 @@ make_gene_barplot = function(boostdm, ratios, expected_rates,  gene_of_interest,
     labs(x = x_label, y = y_label, title = gene_of_interest, subtitle = label, fill = NULL)
 
   if (cell_probabilities == TRUE) {
-    pl = pl + scale_y_continuous(expand = expansion(mult = c(0, 0.1)), labels = function(x) x * 1e6)
+    pl = pl + scale_y_continuous(expand = expansion(mult = c(0, 0.2)), labels = function(x) x * 1e6)
   }
+
+  if (include_hotspots[1] != FALSE) {
+
+    if (class(include_hotspots) != "numeric") {
+      stop("'include_hotspots' needs to be a numeric vector indicating hotspot positions in the gene\n
+           optional: include names of the hotspots to indicate AA positions")
+    }
+
+    # add layer behind the main bars of the mutation plot
+    hotspot_layer = geom_vline(xintercept = include_hotspots, color = "grey")
+    pl$layers = c(hotspot_layer, pl$layers)
+
+    df_hotspots = data.frame(label = names(include_hotspots), x = include_hotspots)
+    pl =  pl + ggrepel::geom_text_repel(data = df_hotspots, aes(label = label, x = x, y = Inf), angle = 90, bg.color =  "white", size = 3,
+                                    bg.r = 0.25, force = 0.2) +  coord_cartesian(clip = "off")
+    pl
+
+    }
+
   pl
 }

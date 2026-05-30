@@ -64,7 +64,7 @@ cell_muts = inner_join(input_muts, metadata) |>
 
 
 vaf_overview = create_vaf_overview(cell_muts = cell_muts |> dplyr::rename(vaf = VAF), sample_names = c("PD26988", "PD37453"))
-ggsave("manuscript/Supplementary_notes/Supplementary_Note_X/figure_lung.png", supplementary_note_plot_lung, width = 10, height = 10)
+ggsave("manuscript/Supplementary_notes/Supplementary_Note_X/figure_lung.png", vaf_overview, width = 10, height = 10)
 
 
 # calculate the estimated coverage for each sample
@@ -117,7 +117,7 @@ fwrite(sig_donor_rates, file = paste0("processed_data/", tissue, "/", tissue, "_
 mrates_files = list.files(paste0("processed_data/", tissue), pattern = "rate_per_sample.tsv.gz", full.names = TRUE, recursive = TRUE)
 mrates_files = mrates_files[!grepl("sig", mrates_files)] # exclude the signature-specific variants
 rates = lapply(mrates_files, fread)
-names(rates) = gsub("sig_rate_per_sample.tsv.gz", "", basename(mrates_files))
+names(rates) = gsub("_rate_per_sample.tsv.gz", "", basename(mrates_files))
 expected_rates = rbindlist(rates) |>
   select(-sensitivity, -coverage) |>
   mutate(category = factor(category, levels = levels(metadata$category)))  |>

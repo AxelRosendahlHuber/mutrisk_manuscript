@@ -32,14 +32,17 @@ ratios = rbindlist(ratio_list, idcol = "tissue", use.names = TRUE)
 gene_of_interest = "TP53"
 
 # Make a barplot showing the probabilitites for TP53 (poster usage)
+include_hotspots = setNames(c(175, 248, 273,282), nm = c("R175",  "R248","R273","R282"))
+
 prob_barplot_lung = make_gene_barplot(boostdm, ratios, expected_rates,  gene_of_interest = "TP53", tissue_select = "lung", category_select = "non-smoker",
-                                      individual = "PD34215",cell_probabilities = TRUE) + labs(title = "TP53", subtitle = "lung", y = NULL)
+                                      include_hotspots = include_hotspots, individual = "PD34215", cell_probabilities = TRUE) + labs(title = NULL, subtitle = "TP53 - lung", y = NULL)
 prob_barplot_blood = make_gene_barplot(boostdm, ratios, expected_rates,  gene_of_interest = "TP53", tissue_select = "blood",
-                                       individual = "KX008", cell_probabilities = TRUE) + labs(title = "TP53", subtitle = "blood", y = NULL)
+                                       include_hotspots = include_hotspots, individual = "KX008", cell_probabilities = TRUE) + labs(title = NULL, subtitle = "TP53 - blood", y = NULL)
 prob_barplot_colon = make_gene_barplot(boostdm, ratios, expected_rates, gene_of_interest = "TP53", tissue_select = "colon",
-                                       individual = "O340", cell_probabilities = TRUE) + labs(title = "TP53", subtitle = "colon")
+                                       include_hotspots = include_hotspots, individual = "O340", cell_probabilities = TRUE) + labs(title = NULL, subtitle = "TP53 - colon")
+
 F1B = wrap_plots(prob_barplot_colon, prob_barplot_lung, prob_barplot_blood, ncol = 3, guides = "collect") &
-  theme(plot.subtitle = element_text(hjust = 0.5))
+  theme(plot.subtitle = element_text(hjust = 0.5, vjust = 3.5))
 saveRDS(F1B, "manuscript/figure_panels/figure_1/figure_1B.rds")
 
 # Manuscript numbers
@@ -66,9 +69,9 @@ cpg_muts = expected_rates |> left_join(triplet_match_substmodel) |>
   summarize(mean_rate = mean(sum_rate),
             min = min(sum_rate),
             max = max(sum_rate))
-print(cpg_muts$mean_rate[1]/cpg_muts$mean_rate[2])
-print(cpg_muts$min[1]/cpg_muts$min[2])
-print(cpg_muts$max[1]/cpg_muts$max[2])
+print(cpg_muts$mean_rate[1]/cpg_muts$mean_rate[2]) # 11.16
+print(cpg_muts$min[1]/cpg_muts$min[2]) # 20.3
+print(cpg_muts$max[1]/cpg_muts$max[2]) # 9.5
 
 # Make a barplot indicating the number of mutations across TP53 across the three tissues (colon, lung, blood)
 # Manuscript numbers also provided by this script
@@ -91,6 +94,7 @@ for (i in 1:nrow(tissue_categories)) {
   plot_list[[i]] = make_gene_barplot(boostdm, ratios, expected_rates, gene_of_interest = "TP53",
                                      tissue_select = tissue_categories$tissue[i],
                                      category_select = tissue_categories$category[i],
+                                     include_hotspots = include_hotspots,
                                     tissue_name = tissue_name, cell_probabilities = TRUE) +
     labs(title = NULL) + theme_classic()
 }
@@ -99,7 +103,7 @@ plot_list = c(plot_list)
 figure_S3 = wrap_plots(plot_list, nrow = 4) + plot_layout(guides = "collect") +
   plot_annotation(title = 'TP53: Expected number of mutated cells')
 ggsave("manuscript/Supplementary_Figures/Figure_S3/Figure_S3.png", figure_S3, width = 14, height = 12)
-ggsave("manuscript/Supplementary_Figures/Figure_S3/Figure_S3.pdf", figure_S3, width = 14, height = 12)
+ggsave("manuscript/Supplementary_Figures/Figure_S3/Figure_S3.svg", figure_S3, width = 14, height = 12)
 
 # APC colon barplot
 APC_colon_normal = make_gene_barplot(boostdm, ratios, expected_rates, gene_of_interest = "APC",

@@ -2,7 +2,6 @@
 library(progress)
 source("code/0_functions/analysis_variables.R")
 
-
 # function to model expansions (grow a cell over a specific time interval)
 grow_pop = function(pop, division_rate, dt, s = 1 ) {
   pop_division_rate = pop * division_rate * dt
@@ -127,8 +126,8 @@ plot = df |>
 plot_log = plot +
   scale_y_log10()
 
-ggsave("manuscript/Supplementary_notes/Supplementary_Note_III/SNIII_Figure_2.png", plot, width = 18, height = 15, bg = "white")
-ggsave("manuscript/Supplementary_notes/Supplementary_Note_III/SNIII_Figure_3.png", plot_log, width = 18, height = 15, bg = "white")
+ggsave("manuscript/Supplementary_notes/Supplementary_Note_5/SN5_Figure_2.png", plot, width = 18, height = 15, bg = "white")
+ggsave("manuscript/Supplementary_notes/Supplementary_Note_5/SN5_Figure_3.png", plot_log, width = 18, height = 15, bg = "white")
 
 # further exploration: Check if this is worth the effort for the manuscript
 # go for a bigger run: model 200.000 individuals
@@ -173,5 +172,5 @@ plot_2e5_pats  = df_200k_sims |>
   labs(x = 'age (Years)', y = 'fraction of cells with mutation', subtitle = "Simulation of DNMT3A mtuations",
        title = "simulation of DNMT3A R882H\nin 200,000 individuals")
 plot_2e5_pats
-ggsave("manuscript/Supplementary_notes/Supplementary_Note_4/SN4_Figure_4.png", plot_2e5_pats, width = 7, height = 4, bg = "white")
+ggsave("manuscript/Supplementary_notes/Supplementary_Note_5/SN5_Figure_4.png", plot_2e5_pats, width = 7, height = 4, bg = "white")
 # todo: model the mutation rates with different initial mutation rates
